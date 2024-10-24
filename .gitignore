@@ -1,3 +1,4 @@
 results/
 src/output_vlm/
 src/output_vlm*/
+src/__pycache__/
