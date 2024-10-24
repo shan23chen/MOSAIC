@@ -72,7 +72,7 @@ def main():
             label_field=args.label_field,
             max_batches=args.max_batches,
             save_dir=args.save_dir,  # Pass the save directory
-            activation_only = bool(args.act_only is 'True')
+            activation_only = bool(args.act_only == 'True')
         )
 
         logging.info("Processing completed successfully.")

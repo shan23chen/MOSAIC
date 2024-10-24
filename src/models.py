@@ -13,7 +13,7 @@ def load_models_and_tokenizer(checkpoint, layer, device, model_type, sae_release
         tokenizer = AutoTokenizer.from_pretrained(checkpoint)
         model = AutoModelForCausalLM.from_pretrained(checkpoint, device_map="auto")
     elif model_type == "vlm":
-        logging.info("Loading VLM model ++ {checkpoint}")
+        logging.info(f"Loading VLM model ++ {checkpoint}")
         processor = AutoProcessor.from_pretrained(checkpoint)
         if 'paligemma' in checkpoint:
             model = PaliGemmaForConditionalGeneration.from_pretrained(checkpoint, device_map="auto") 
