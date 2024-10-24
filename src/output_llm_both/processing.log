@@ -1,0 +1,9 @@
+2024-10-24 15:47:08,847 - INFO - Starting processing with arguments: Namespace(model_name='google/gemma-2b-it', model_type='llm', sae_release='gemma-2b', layer=12, batch_size=32, checkpoint='google/gemma-2b-it', save_dir='./output_llm_both', dataset_name='shanchen/OncQA', dataset_config_name=None, dataset_split='train', text_field='question', image_field='NA', label_field='q1', act_only='False', max_batches=3)
+2024-10-24 15:47:08,847 - INFO - Loading model and tokenizer/processor for google/gemma-2b-it
+2024-10-24 15:47:08,847 - INFO - Loading LLM model ++ google/gemma-2b-it
+2024-10-24 15:47:09,716 - INFO - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+2024-10-24 15:47:15,099 - INFO - Loading SAE model from release gemma-2b, layer 12
+2024-10-24 15:47:16,361 - INFO - Loading dataset: shanchen/OncQA, config: None, split: train
+2024-10-24 15:47:34,197 - INFO - Reached maximum number of batches (3). Stopping.
+2024-10-24 15:47:34,197 - INFO - Processing completed.
+2024-10-24 15:47:34,227 - INFO - Processing completed successfully.
