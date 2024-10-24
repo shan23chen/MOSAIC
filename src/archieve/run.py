@@ -19,8 +19,8 @@ import plotly.express as px
 
 torch.set_grad_enabled(False)
 
-ds = "benjamin-paine/imagenet-1k-256x256"
-# ds = "renumics/cifar100-enriched
+# ds = "benjamin-paine/imagenet-1k-256x256"
+ds = "renumics/cifar100-enriched"
 
 # For the most part I'll try to import functions and classes near where they are used
 # to make it clear where they come from.
@@ -90,7 +90,9 @@ def extract_hidden_states(model, inputs, layer):
     return target_act
 
 def analyze_with_sae(sae, target_act):
+    # target_act is the residual stream -> for baseline classification -> noisy inputs -> probing
     sae_acts = sae.encode(target_act.to(torch.float32))
+    # sae_acts is the sparse activity -> shape: (batch_size, num_features / each number in here is a sclar of how activated this feature is) -> clean -> threashold/percentile  
     recon = sae.decode(sae_acts)
     reconstruction_error = 1 - torch.mean((recon[:, 1:] - target_act[:, 1:].to(torch.float32)) ** 2) / (target_act[:, 1:].to(torch.float32).var())
     return sae_acts, reconstruction_error
@@ -196,6 +198,7 @@ def process_dataset(dataset, batch_size=8, max_samples=None):
                 # outputs = generate_text(model, inputs, processor)
                 target_act = extract_hidden_states(model, inputs, layer)
                 sae_acts, reconstruction_error = analyze_with_sae(sae, target_act)
+                # TODO sae_acts should be stored,   
                 values, inds = sae_acts.max(-1)  # Shape: (batch_size, sequence_length)
 
                 # Now retrieve features for each sample in the batch
