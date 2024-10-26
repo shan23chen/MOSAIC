@@ -36,12 +36,123 @@ This project aims to create an explainable classifier by leveraging extracted hi
 
 The Sparse Autoencoder (SAE) activations are stored selectively to manage storage efficiently, given that storing all SAE activations is memory-intensive. Only the necessary activations and sparse representations required for classification are saved to optimize space.
 
+
+# Running SAEfari Scripts
+
+This repository contains scripts for analyzing models using Sparse Autoencoders (SAE). The process consists of two main steps: extracting hidden states and processing the results.
+
+## Prerequisites
+
+1. Create the environment from the `environment.yml` file:
+
+   ```bash
+   mamba env create -f environment.yml
+  ```
+
+2. Activate the environment:
+
+   ```bash
+   mamba activate saefari
+   ```
+
+## Step 1: Extract Hidden States (run.py)
+
+This script extracts hidden states from either Language Models (LLM) or Vision Language Models (VLM).
+
+### For Language Models
+
+```bash
+python run.py \
+    --model_name google/gemma-2b-it \
+    --model_type llm \
+    --sae_release gemma-2b \
+    --layer 12 \
+    --checkpoint google/gemma-2b-it \
+    --save_dir ./output_llm_both \
+    --dataset_name shanchen/OncQA \
+    --dataset_split train \
+    --text_field question \
+    --image_field NA \
+    --label_field q1 \
+    --act_only False \
+    --max_batches 3
+```
+
+### For Vision Language Models
+
+```bash
+python run.py \
+    --model_name Intel/llava-gemma-2b \
+    --model_type vlm \
+    --sae_release gemma-2b \
+    --layer 12 \
+    --checkpoint Intel/llava-gemma-2b \
+    --save_dir ./output_vlm_both \
+    --dataset_name renumics/cifar100-enriched \
+    --dataset_split test \
+    --text_field fine_label_str \
+    --image_field full_image \
+    --label_field fine_label_str \
+    --act_only False \
+    --max_batches 3
+```
+
+## Step 2: Process Results (process_npz_files.py)
+
+After extracting hidden states, process the results and generate visualizations:
+
+```bash
+python process_npz_files.py \
+    --input-dir ./output_llm_both \
+    --model-name google/gemma-2b-it \
+    --model-type llm \
+    --layer 12 \
+    --sae-release gemma-2b \
+    --top-n 5 \
+    --output-dir processed_features_llm \
+    --test-size 0.2 \
+    --tree-depth 5 \
+    --save-plots
+```
+
+## Key Parameters
+
+- `--model_name`: Name/path of the model (e.g., google/gemma-2b-it)
+- `--model_type`: Type of model (llm or vlm)
+- `--sae_release`: SAE release name
+- `--layer`: Layer to extract hidden states from
+- `--save_dir`/`--output-dir`: Directory for output files
+- `--dataset_name`: HuggingFace dataset to use
+- `--act_only`: Whether to store activations only (True) or both SAE and activations (False)
+- `--max_batches`: Limit number of batches (useful for testing)
+
+## Batch Processing
+
+For processing multiple configurations, run a shell script:
+
+   ```bash
+   cd src
+   chmod +x run_ds.sh
+   bash run_ds.sh
+   ```
+
+## Output
+
+The scripts will generate:
+- Hidden state NPZ files
+- Processed sae features
+- Classification results for linear probe and decision tree
+- Visualization plots (if --save-plots is enabled)
+- Interactive dashboard (automatically launches in browser)
+
+
 ## To-Do and Next Steps
 
 1. **Classifier Connection**: Connect extracted SAE features to an explainable classifier.
 2. **Classifier Visualizations**: Develop visualizations to interpret classifier outputs, enabling insight into feature importance and the classifier’s decision-making process.
 
 This work focuses on transforming hidden layers from VLMs/LLMs into sparse, interpretable features, allowing for a more explainable approach to model-based classification tasks. The step-by-step structure in `playground.ipynb` and batch functionality in `process_npz_files.py` ensure that this pipeline is both flexible and scalable.
+
 
 ## Citation
 TBD
