@@ -1,0 +1,35 @@
+name: saefari
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+  - nvidia
+dependencies:
+  - python=3.10
+  - pytorch::pytorch=2.1.1
+  - pytorch::torchvision=0.16.1
+  - pytorch::torchaudio=2.1.1
+  - pytorch::pytorch-cuda=12.1
+  - transformers
+  - datasets
+  - tqdm
+  - numpy
+  - pandas
+  - debugpy
+  - ipykernel
+  - pillow
+  - matplotlib
+  - scikit-learn
+  - requests
+  - pip
+  - ipywidgets
+  - pip:
+    - sae-lens
+    - umap-learn
+    - nbformat>=4.2.0 
+    - flask
+    - flask-cors
+    - dash
+    - dash-bootstrap-components
+    - dash-core-components
+    - dash-html-components
