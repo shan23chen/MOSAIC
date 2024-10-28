@@ -33,3 +33,4 @@ dependencies:
     - dash-bootstrap-components
     - dash-core-components
     - dash-html-components
+    - -e .  # This will install the local package in the current directory

@@ -3,3 +3,6 @@ src/output_*/
 src/__pycache__/
 __pycache__/
 src/processed_features*
+cache/
+.vscode/
+sae_llava.egg-info/
