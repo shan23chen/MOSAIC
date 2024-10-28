@@ -1,0 +1,198 @@
+.hover-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.hover-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+/* Card styles */
+.card {
+    border: none;
+    border-radius: 8px;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Info badge styles */
+.badge {
+    font-weight: normal;
+    font-size: 0.9rem;
+    border-radius: 6px;
+}
+
+.badge span.text-muted {
+    opacity: 0.7;
+}
+
+/* Spacing utilities */
+.mb-3 {
+    margin-bottom: 1rem !important;
+}
+
+.mb-4 {
+    margin-bottom: 1.5rem !important;
+}
+
+/* Shadow utilities */
+.shadow-sm {
+    box-shadow: 0 .125rem .25rem rgba(0,0,0,.075) !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .badge {
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Table styles */
+.table-sm td, .table-sm th {
+    padding: 0.5rem;
+    border: none;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0,0,0,.03);
+}
+
+.border-bottom {
+    border-bottom: 2px solid #dee2e6 !important;
+}
+
+/* Card styles */
+.card {
+    border: none;
+    border-radius: 8px;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Spacing */
+.mb-3 {
+    margin-bottom: 1rem !important;
+}
+
+.mb-4 {
+    margin-bottom: 1.5rem !important;
+}
+
+/* Shadow */
+.shadow-sm {
+    box-shadow: 0 .125rem .25rem rgba(0,0,0,.075) !important;
+}
+
+body {
+    background-color: #FAF9F6;
+}
+
+.card {
+    border: none;
+    border-radius: 8px;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+.progress {
+    background-color: rgba(0,0,0,0.1);
+}
+
+.progress-bar {
+    transition: width 0.6s ease;
+}
+
+.bg-white {
+    background-color: white !important;
+}
+
+/* Model info banner styles */
+.model-info-banner {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.model-info-banner .text-primary {
+    font-weight: 500;
+}
+
+/* Add shadows to cards */
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.model-info-banner {
+    transition: all 0.3s ease;
+}
+
+.model-info-banner .card {
+    box-shadow: none;
+}
+
+.model-info-banner .card-body {
+    padding: 0.5rem 1rem;
+}
+
+.bg-light {
+    background-color: #f8f9fa !important;
+}
+
+.text-primary {
+    color: #0d6efd !important;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+.font-weight-bold {
+    font-weight: 500 !important;
+}
+/* Tree visualization styles */
+.btn-link {
+    color: inherit;
+    padding: 0;
+}
+
+.btn-link:hover {
+    color: inherit;
+    text-decoration: none;
+}
+
+.btn-link:focus {
+    box-shadow: none;
+}
+
+.fa-caret-right {
+    transition: transform 0.2s;
+}
+
+[aria-expanded="true"] .fa-caret-right {
+    transform: rotate(90deg);
+}
+
+.badge {
+    font-weight: normal;
+    font-size: 0.85rem;
+    padding: 0.35em 0.65em;
+}
+
+.badge-danger {
+    background-color: rgba(220, 53, 69, 0.8);
+}
+
+.badge-success {
+    background-color: rgba(40, 167, 69, 0.8);
+}
+
+.badge-primary {
+    background-color: rgba(0, 123, 255, 0.8);
+}

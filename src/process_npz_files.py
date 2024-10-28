@@ -21,16 +21,8 @@ import threading
 import time
 
 
-from classifiers import (
-    prepare_hidden_states_for_linear_probe,
-    train_linear_probe,
-    train_decision_tree,
-    save_classification_results,
-    plot_decision_tree,
-    get_model_info,
-)
-from dashboard import run_dash_server, get_tree_info
-
+from classifiers import ModelTrainer, TrainingConfig
+from dash_utils import NumpyJSONEncoder, prepare_dashboard_data, get_tree_info
 
 # Configure logging
 logging.basicConfig(
@@ -102,6 +94,28 @@ def parse_arguments():
     )
     parser.add_argument(
         "--save-plots", action="store_true", help="Save visualization plots"
+    )
+    parser.add_argument(
+        "--cv_folds", type=int, default=5, help="Number of cross-validation folds"
+    )
+    parser.add_argument(
+        "--linear_c_values",
+        type=float,
+        nargs="+",
+        default=[0.1, 1.0, 10.0],
+        help="C values for linear probe grid search",
+    )
+    parser.add_argument(
+        "--tree_min_samples_split",
+        type=int,
+        default=2,
+        help="Minimum samples required to split for decision tree",
+    )
+    parser.add_argument(
+        "--tree_min_samples_leaf",
+        type=int,
+        default=1,
+        help="Minimum samples required at leaf node for decision tree",
     )
 
     return parser.parse_args()
@@ -273,123 +287,62 @@ def main():
             model_type=args.model_type,
         )
 
-        # Train classifiers
-        linear_results = train_linear_probe(
-            processed_df, test_size=args.test_size, random_state=args.random_state
-        )
-
-        tree_results = train_decision_tree(
-            processed_df,
-            max_depth=args.tree_depth,
+        # Initialize training configuration
+        config = TrainingConfig(
             test_size=args.test_size,
             random_state=args.random_state,
+            cv_folds=args.cv_folds if hasattr(args, "cv_folds") else 5,
         )
 
-        # Save classification results
-        save_classification_results(
+        # Initialize model trainer
+        trainer = ModelTrainer(config)
+
+        # Train models with enhanced pipeline
+        linear_results = trainer.train_linear_probe(processed_df)
+        tree_results = trainer.train_decision_tree(processed_df)
+
+        # Save results using new save method
+        trainer.save_results(
             linear_results, args.output_dir, args.model_name, args.layer, "linear_probe"
         )
 
-        save_classification_results(
+        trainer.save_results(
             tree_results, args.output_dir, args.model_name, args.layer, "decision_tree"
         )
 
-        # Plot decision tree if requested
-        if args.save_plots:
-            feature_names = [
-                f"feature_{i}" for i in range(processed_df["features"].iloc[0].shape[0])
-            ]
-            class_names = processed_df["label"].unique().astype(str).tolist()
-            plot_path = (
-                Path(args.output_dir)
-                / f"{args.model_name}_{args.layer}_decision_tree.png"
-            )
-            plot_decision_tree(tree_results, feature_names, class_names, plot_path)
-
         logging.info("Processing and classification completed successfully")
 
-        # In your main function, modify the dashboard_data creation:
-        dashboard_data = {
-            "modelInfo": {
-                "name": args.model_name,
-                "layer": args.layer,
-                "type": args.model_type,
-            },
-            "metrics": {
-                "linearProbe": {
-                    "accuracy": linear_results["accuracy"],
-                    "per_class_metrics": {
-                        str(class_name): {
-                            "precision": float(precision),
-                            "recall": float(recall),
-                            "f1_score": float(f1),
-                        }
-                        for class_name, precision, recall, f1 in zip(
-                            linear_results["classes"],
-                            linear_results["precision"],
-                            linear_results["recall"],
-                            linear_results["f1"],
-                        )
-                    },
-                },
-                "decisionTree": {
-                    "accuracy": tree_results["accuracy"],
-                    "per_class_metrics": {
-                        str(class_name): {
-                            "precision": float(precision),
-                            "recall": float(recall),
-                            "f1_score": float(f1),
-                        }
-                        for class_name, precision, recall, f1 in zip(
-                            tree_results["classes"],
-                            tree_results["precision"],
-                            tree_results["recall"],
-                            tree_results["f1"],
-                        )
-                    },
-                },
-            },
-            # Add the feature importances from the decision tree
-            "feature_importances": tree_results["model"].feature_importances_.tolist(),
-            "feature_names": [
-                f"feature_{i}" for i in range(processed_df["features"].iloc[0].shape[0])
-            ],
-            "class_names": [str(name) for name in tree_results["classes"].tolist()],
-        }
+        # Prepare and save dashboard data
+        dashboard_data = prepare_dashboard_data(
+            linear_results=linear_results,
+            tree_results=tree_results,
+            args=args,
+            tree_info=get_tree_info(tree_results["model"]),
+        )
 
-        tree_info = get_tree_info(tree_results["model"])
-        dashboard_data["tree_info"] = {
-            "children_left": tree_info["children_left"].tolist(),
-            "children_right": tree_info["children_right"].tolist(),
-            "feature": tree_info["feature"].tolist(),
-            "threshold": tree_info["threshold"].tolist(),
-            "n_node_samples": tree_info["n_node_samples"].tolist(),
-            "impurity": tree_info["impurity"].tolist(),
-            "value": tree_info["value"].tolist(),
-        }
-
-        # Save dashboard data
+        # Save dashboard data with proper formatting
         dashboard_path = (
             Path(args.output_dir)
-            / "google"
+            / "dashboards"
             / f"{args.model_name.split('/')[-1]}_{args.layer}_dashboard.json"
         )
         dashboard_path.parent.mkdir(parents=True, exist_ok=True)
+
         with open(dashboard_path, "w") as f:
-            json.dump(dashboard_data, f)
+            json.dump(dashboard_data, f, indent=2, cls=NumpyJSONEncoder)
 
         logging.info(f"Dashboard data saved to {dashboard_path}")
 
-        # Start the Dash server in a separate thread
-        dash_thread = threading.Thread(
-            target=run_dash_server, args=(str(dashboard_path),)
-        )
-        dash_thread.daemon = True
-        dash_thread.start()
+        # # Start the Dash server
+        # dash_thread = threading.Thread(
+        #     target=run_dash_server, args=(str(dashboard_path),)
+        # )
+        # dash_thread.daemon = True
+        # dash_thread.start()
 
-        # Keep the main thread running
-        while True:
-            time.sleep(1)
+        # # Keep the main thread running
+        # while True:
+        #     time.sleep(1)
 
     except Exception as e:
         logging.error(f"Error processing data: {e}")
