@@ -198,3 +198,16 @@ def prepare_dashboard_data(
     }
 
     return dashboard_data
+
+
+def get_tree_info(tree_model):
+    tree = tree_model.tree_
+    return {
+        "children_left": tree.children_left,  # Array of left child indices
+        "children_right": tree.children_right,  # Array of right child indices
+        "feature": tree.feature,  # Feature used for splitting at each node
+        "threshold": tree.threshold,  # Threshold values for splits
+        "n_node_samples": tree.n_node_samples,  # Number of samples at each node
+        "impurity": tree.impurity,  # Gini impurity at each node
+        "value": tree.value,  # Class distribution at each node
+    }
