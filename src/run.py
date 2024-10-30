@@ -44,8 +44,12 @@ def parse_args():
         "--sae_release", type=str, help="SAE release name", required=True
     )
     parser.add_argument(
-        "--layer", type=int, help="Layer to extract hidden states from", required=True
+        "--layer",
+        type=str,
+        help="Comma-separated layers to extract hidden states from (e.g., '7,8,9')",
+        required=True,
     )
+
     parser.add_argument(
         "--batch_size", type=int, default=32, help="Batch size for dataset processing"
     )
@@ -106,25 +110,6 @@ def parse_args():
         default=None,
         help="Maximum number of batches to process (for debug/testing)",
     )
-
-    # New arguments for SAE processing
-    parser.add_argument(
-        "--process_sae",
-        action="store_true",
-        help="Whether to process hidden states with SAE",
-    )
-    parser.add_argument(
-        "--top_n",
-        type=int,
-        default=5,
-        help="Number of top values to retain in SAE processing",
-    )
-    parser.add_argument(
-        "--last_token",
-        action="store_true",
-        help="Process only the last token of sequences",
-    )
-
     return parser.parse_args()
 
 
@@ -142,42 +127,71 @@ def setup_logging(save_dir):
     logging.getLogger("").addHandler(console)
 
 
+def sanitize_path(path_str):
+    """Convert path string to a safe directory name by replacing / with _"""
+    return path_str.replace("/", "_").replace("\\", "_")
+
+
+def get_save_directory(base_dir, model_name, dataset_name, layer):
+    """Create and return a structured save directory path"""
+    # Sanitize model and dataset names
+    safe_model_name = sanitize_path(model_name)
+    safe_dataset_name = sanitize_path(dataset_name)
+
+    # Create path: base_dir/model_name/dataset_name/layer_{layer}
+    save_dir = os.path.join(
+        base_dir, safe_model_name, safe_dataset_name, f"layer_{layer}"
+    )
+
+    return save_dir
+
+
 def main():
     args = parse_args()
-    setup_logging(args.save_dir)
-    logging.info("Starting processing with arguments: %s", args)
 
-    try:
-        # Get hidden states
-        npz_files = get_hidden_states(
-            model_name=args.model_name,
-            model_type=args.model_type,
-            checkpoint=args.checkpoint,
-            layer=args.layer,
-            sae_release=args.sae_release,
-            batch_size=args.batch_size,
-            dataset_name=args.dataset_name,
-            dataset_config_name=args.dataset_config_name,
-            dataset_split=args.dataset_split,
-            text_field=args.text_field,
-            image_field=args.image_field,
-            label_field=args.label_field,
-            max_batches=args.max_batches,
-            save_dir=args.save_dir,
-            activation_only=bool(args.act_only == "True"),
+    # Parse layers from comma-separated string
+    layers = [int(layer.strip()) for layer in args.layer.split(",")]
+    logging.info(f"Processing layers: {layers}")
+
+    for layer in layers:
+        # Create layer-specific save directory
+        layer_save_dir = get_save_directory(
+            args.save_dir, args.model_name, args.dataset_name, layer
         )
+        os.makedirs(layer_save_dir, exist_ok=True)
 
-        # Process with SAE if requested
-        if args.process_sae:
-            logging.info("Processing hidden states with SAE")
-            processed_data = process_sae_features(npz_files, args)
-            logging.info("SAE processing completed successfully")
+        # Setup logging for this layer
+        setup_logging(layer_save_dir)
+        logging.info(f"Processing layer {layer} with save directory: {layer_save_dir}")
+        logging.info(f"Starting processing with arguments: {args}")
 
-        logging.info("All processing completed successfully")
+        try:
+            # Get hidden states for current layer
+            npz_files = get_hidden_states(
+                model_name=args.model_name,
+                model_type=args.model_type,
+                checkpoint=args.checkpoint,
+                layer=layer,  # Use current layer
+                sae_release=args.sae_release,
+                batch_size=args.batch_size,
+                dataset_name=args.dataset_name,
+                dataset_config_name=args.dataset_config_name,
+                dataset_split=args.dataset_split,
+                text_field=args.text_field,
+                image_field=args.image_field,
+                label_field=args.label_field,
+                max_batches=args.max_batches,
+                save_dir=layer_save_dir,  # Use layer-specific save directory
+                activation_only=bool(args.act_only == "True"),
+            )
 
-    except Exception as e:
-        logging.exception("An error occurred during processing")
-        sys.exit(1)
+            logging.info(f"Processing completed successfully for layer {layer}")
+
+        except Exception as e:
+            logging.exception(f"An error occurred during processing of layer {layer}")
+            continue  # Continue with next layer even if current one fails
+
+    logging.info("All layer processing completed")
 
 
 if __name__ == "__main__":
