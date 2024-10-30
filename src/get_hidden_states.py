@@ -28,7 +28,6 @@ def get_valid_token(model_name, model_type, hidden_states):
 def get_hidden_states(
     model_name,
     model_type,
-    checkpoint,
     layer,
     sae_location,
     width,
@@ -46,7 +45,7 @@ def get_hidden_states(
     logging.info(f"Loading model and tokenizer/processor for {model_name}")
     # Load the model and tokenizer/processor
     model, tokenizer_or_processor, sae = load_models_and_tokenizer(
-        checkpoint, layer, device, model_type, sae_location, width
+        model_name, layer, device, model_type, sae_location, width
     )
     model.eval()
 
