@@ -42,7 +42,7 @@ def parse_args():
         required=True,
     )
     parser.add_argument(
-        "--sae_release", type=str, help="SAE release name", required=True
+        "--sae_location", type=str, help="SAE location e.g. mlp or res", required=True
     )
     parser.add_argument(
         "--layer",
@@ -111,6 +111,12 @@ def parse_args():
         default=None,
         help="Maximum number of batches to process (for debug/testing)",
     )
+    parser.add_argument(
+        "--width",
+        type=str,
+        default="16k",
+        help="Width of the SAE encoder (e.g. 16k, 524k, 1m)",
+    )
     return parser.parse_args()
 
 
@@ -133,16 +139,22 @@ def sanitize_path(path_str):
     return path_str.replace("/", "_").replace("\\", "_")
 
 
-def get_save_directory(base_dir, model_name, dataset_name, split, layer):
+def get_save_directory(base_dir, model_name, dataset_name, split, layer, width):
     """Create and return a structured save directory path"""
     # Sanitize model and dataset names
     safe_model_name = sanitize_path(model_name)
     safe_dataset_name = sanitize_path(dataset_name)
     safe_split = sanitize_path(split)
+    safe_width = sanitize_path(width)
 
     # Create path: base_dir/model_name/dataset_name/layer_{layer}
     save_dir = os.path.join(
-        base_dir, safe_model_name, safe_dataset_name, safe_split, f"layer_{layer}"
+        base_dir,
+        safe_model_name,
+        safe_dataset_name,
+        safe_split,
+        f"layer_{layer}",
+        safe_width,
     )
 
     return save_dir
@@ -158,7 +170,12 @@ def main():
     for layer in layers:
         # Create layer-specific save directory
         layer_save_dir = get_save_directory(
-            args.save_dir, args.model_name, args.dataset_name, args.dataset_split, layer
+            args.save_dir,
+            args.model_name,
+            args.dataset_name,
+            args.dataset_split,
+            layer,
+            args.width,
         )
         os.makedirs(layer_save_dir, exist_ok=True)
 
@@ -174,7 +191,8 @@ def main():
                 model_type=args.model_type,
                 checkpoint=args.checkpoint,
                 layer=layer,  # Use current layer
-                sae_release=args.sae_release,
+                sae_location=args.sae_location,
+                width=args.width,
                 batch_size=args.batch_size,
                 dataset_name=args.dataset_name,
                 dataset_config_name=args.dataset_config_name,
@@ -198,7 +216,7 @@ def main():
             logging.exception(f"An error occurred during processing of layer {layer}")
             continue  # Continue with next layer even if current one fails
 
-    logging.info("All layer processing completed")
+    logging.info("All layer processing completed\n\n\n\n")
 
 
 if __name__ == "__main__":
