@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from get_hidden_states import get_hidden_states
 from sae_lens import SAE
+import gc
 
 # Debug configuration
 try:
@@ -132,15 +133,16 @@ def sanitize_path(path_str):
     return path_str.replace("/", "_").replace("\\", "_")
 
 
-def get_save_directory(base_dir, model_name, dataset_name, layer):
+def get_save_directory(base_dir, model_name, dataset_name, split, layer):
     """Create and return a structured save directory path"""
     # Sanitize model and dataset names
     safe_model_name = sanitize_path(model_name)
     safe_dataset_name = sanitize_path(dataset_name)
+    safe_split = sanitize_path(split)
 
     # Create path: base_dir/model_name/dataset_name/layer_{layer}
     save_dir = os.path.join(
-        base_dir, safe_model_name, safe_dataset_name, f"layer_{layer}"
+        base_dir, safe_model_name, safe_dataset_name, safe_split, f"layer_{layer}"
     )
 
     return save_dir
@@ -156,7 +158,7 @@ def main():
     for layer in layers:
         # Create layer-specific save directory
         layer_save_dir = get_save_directory(
-            args.save_dir, args.model_name, args.dataset_name, layer
+            args.save_dir, args.model_name, args.dataset_name, args.dataset_split, layer
         )
         os.makedirs(layer_save_dir, exist_ok=True)
 
@@ -186,6 +188,11 @@ def main():
             )
 
             logging.info(f"Processing completed successfully for layer {layer}")
+
+            # clear the memory
+            del npz_files
+            torch.cuda.empty_cache()
+            gc.collect()
 
         except Exception as e:
             logging.exception(f"An error occurred during processing of layer {layer}")
