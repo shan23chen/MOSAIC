@@ -13,14 +13,14 @@ from sae_lens import SAE
 import gc
 
 # Debug configuration
-try:
-    import debugpy
+# try:
+#     import debugpy
 
-    debugpy.listen(("localhost", 9503))
-    print("Waiting for debugger attach")
-    debugpy.wait_for_client()
-except Exception as e:
-    pass
+#     debugpy.listen(("localhost", 9503))
+#     print("Waiting for debugger attach")
+#     debugpy.wait_for_client()
+# except Exception as e:
+#     pass
 
 # Set device
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -42,7 +42,12 @@ def parse_args():
         required=True,
     )
     parser.add_argument(
-        "--sae_location", type=str, help="SAE location e.g. mlp or res", required=True
+        "--sae_location", 
+        type=str,
+        default="res",
+        choices=["res", "mlp", "att"],
+        help="SAE location e.g. mlp, res or att", 
+        required=True
     )
     parser.add_argument(
         "--layer",
@@ -50,12 +55,8 @@ def parse_args():
         help="Comma-separated layers to extract hidden states from (e.g., '7,8,9')",
         required=True,
     )
-
     parser.add_argument(
         "--batch_size", type=int, default=32, help="Batch size for dataset processing"
-    )
-    parser.add_argument(
-        "--checkpoint", type=str, help="Model checkpoint path", required=True
     )
     parser.add_argument(
         "--save_dir",
@@ -189,7 +190,6 @@ def main():
             npz_files = get_hidden_states(
                 model_name=args.model_name,
                 model_type=args.model_type,
-                checkpoint=args.checkpoint,
                 layer=layer,  # Use current layer
                 sae_location=args.sae_location,
                 width=args.width,

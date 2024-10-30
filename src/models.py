@@ -59,16 +59,28 @@ def load_models_and_tokenizer(
         raise ValueError(f"Unsupported model_type: {model_type}")
 
     model.to(device)
+    if model_type == "llm" and "gemma-2" in checkpoint.lower():
+        # Get SAE configuration based on model architecture
+        sae_location, feature_id = get_sae_config(checkpoint, layer, sae_location, width)
 
-    # Get SAE configuration based on model architecture
-    sae_location, feature_id = get_sae_config(checkpoint, layer, sae_location, width)
+        logging.info(f"Loading SAE model from release {sae_location}, feature {feature_id}")
+        sae, cfg_dict, sparsity = SAE.from_pretrained(
+            release=f"{sae_location}",
+            sae_id=feature_id,
+            device=device,
+        )
 
-    logging.info(f"Loading SAE model from release {sae_location}, feature {feature_id}")
-    sae, cfg_dict, sparsity = SAE.from_pretrained(
-        release=f"{sae_location}",
-        sae_id=feature_id,
-        device=device,
-    )
+    else:
+        if 'it' in checkpoint.lower():
+            sae_release = 'gemma-2b-it'
+        else:
+            sae_release = 'gemma-2b'
+        logging.info(f"Loading SAE model from release {sae_release}, layer {layer}")
+        sae, cfg_dict, sparsity = SAE.from_pretrained(
+            release=f"{sae_release}-res-jb",
+            sae_id=f"blocks.{layer}.hook_resid_post",
+            device=device,
+        )
 
     if model_type == "llm":
         return model, tokenizer, sae
