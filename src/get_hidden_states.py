@@ -30,7 +30,8 @@ def get_hidden_states(
     model_type,
     checkpoint,
     layer,
-    sae_release,
+    sae_location,
+    width,
     batch_size=32,
     dataset_name=None,
     dataset_config_name=None,
@@ -45,7 +46,7 @@ def get_hidden_states(
     logging.info(f"Loading model and tokenizer/processor for {model_name}")
     # Load the model and tokenizer/processor
     model, tokenizer_or_processor, sae = load_models_and_tokenizer(
-        checkpoint, layer, device, model_type, sae_release
+        checkpoint, layer, device, model_type, sae_location, width
     )
     model.eval()
 
