@@ -1,31 +1,24 @@
-from sae_lens import SAE
-import logging
-from pathlib import Path
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.preprocessing import StandardScaler, label_binarize, LabelEncoder
 from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
 from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import (
     accuracy_score,
-    precision_recall_fscore_support,
-    confusion_matrix,
     roc_curve,
     auc,
     classification_report,
     roc_auc_score,
 )
-from sklearn.preprocessing import StandardScaler
+import numpy as np
+import pandas as pd
 import logging
-from typing import Dict, List, Tuple, Any
-import joblib
 from pathlib import Path
 import warnings
 from dataclasses import dataclass
 import json
-from sklearn.preprocessing import StandardScaler, label_binarize
-from dataclasses import dataclass
+import joblib
+from typing import Dict, List, Tuple, Any
 
 
 @dataclass
@@ -35,29 +28,30 @@ class TrainingConfig:
     test_size: float = 0.2
     random_state: int = 42
     cv_folds: int = 2
-    max_iter: int = 20
+    max_iter: int = 1000
 
-    # Linear probe specific
-    linear_probe_params = {
-        "C": [0.1, 1.0],
-        "penalty": ["l1", "l2"],
-        "solver": ["liblinear"],
+    # Common parameters for both binary and multiclass
+    probe_params = {
+        "C": [0.1, 1.0, 10.0],
+        "penalty": ["l2"],
+        "solver": ["lbfgs"],
     }
 
     # Decision tree specific
     tree_params = {
-        "max_depth": [3, 5],
+        "max_depth": [3, 5, 7],
         "min_samples_split": [2, 5],
         "min_samples_leaf": [1, 2],
     }
 
 
 class ModelTrainer:
-    """Class to handle model training and evaluation."""
+    """Class to handle model training and evaluation with modern sklearn practices."""
 
     def __init__(self, config: TrainingConfig):
         self.config = config
         self.scaler = StandardScaler()
+        self.label_encoder = LabelEncoder()
 
     def prepare_hidden_states(
         self, hidden_states: List[np.ndarray], max_length: int = None
@@ -75,71 +69,80 @@ class ModelTrainer:
             padded_states[i, :seq_len] = state[:seq_len]
 
         # Reshape and normalize
-        n_samples, seq_len, hidden_dim = padded_states.shape
         reshaped = padded_states.reshape(n_samples, -1)
         normalized = self.scaler.fit_transform(reshaped)
 
         return normalized
 
     def compute_metrics(
-        self, y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray = None
+        self,
+        y_true: np.ndarray,
+        y_pred: np.ndarray,
+        y_prob: np.ndarray,
+        classes: np.ndarray,
+        class_labels: List[str],
     ) -> Dict[str, Any]:
-        """Compute comprehensive classification metrics with multiclass support."""
+        """Compute metrics with proper handling of binary and multiclass cases."""
+        # Convert numerical predictions back to original labels for the classification report
+        y_true_labels = self.label_encoder.inverse_transform(y_true)
+        y_pred_labels = self.label_encoder.inverse_transform(y_pred)
+
         metrics = {
             "accuracy": accuracy_score(y_true, y_pred),
             "classification_report": classification_report(
-                y_true, y_pred, output_dict=True
+                y_true_labels, y_pred_labels, output_dict=True
             ),
         }
 
-        # Add ROC AUC if probabilities are available
-        if y_prob is not None:
-            # Get unique classes
-            classes = np.unique(y_true)
-            n_classes = len(classes)
+        n_classes = len(classes)
+        if n_classes == 2:
+            # Binary classification
+            fpr, tpr, _ = roc_curve(y_true, y_prob[:, 1])
+            metrics["roc_auc"] = auc(fpr, tpr)
+            metrics["roc_curve"] = {"fpr": fpr.tolist(), "tpr": tpr.tolist()}
+        else:
+            # Multiclass classification
+            y_true_bin = label_binarize(y_true, classes=classes)
+            metrics["roc_auc"] = {}
+            metrics["roc_curve"] = {}
 
-            if n_classes == 2:
-                # Binary classification
-                fpr, tpr, _ = roc_curve(y_true, y_prob[:, 1])
-                metrics["roc_auc"] = auc(fpr, tpr)
-                metrics["roc_curve"] = {"fpr": fpr.tolist(), "tpr": tpr.tolist()}
-            else:
-                # Multiclass classification
-                # One-vs-Rest ROC curves
-                y_true_bin = label_binarize(y_true, classes=classes)
-                metrics["roc_auc"] = {}
-                metrics["roc_curve"] = {}
-
-                for i in range(n_classes):
-                    fpr, tpr, _ = roc_curve(y_true_bin[:, i], y_prob[:, i])
-                    metrics["roc_auc"][str(classes[i])] = auc(fpr, tpr)
-                    metrics["roc_curve"][str(classes[i])] = {
-                        "fpr": fpr.tolist(),
-                        "tpr": tpr.tolist(),
-                    }
-
-                # Compute micro-average ROC curve
-                fpr_micro, tpr_micro, _ = roc_curve(y_true_bin.ravel(), y_prob.ravel())
-                metrics["roc_auc"]["micro"] = auc(fpr_micro, tpr_micro)
-                metrics["roc_curve"]["micro"] = {
-                    "fpr": fpr_micro.tolist(),
-                    "tpr": tpr_micro.tolist(),
+            # Class-specific metrics
+            for i, (class_idx, class_label) in enumerate(zip(classes, class_labels)):
+                fpr, tpr, _ = roc_curve(y_true_bin[:, i], y_prob[:, i])
+                metrics["roc_auc"][class_label] = auc(fpr, tpr)
+                metrics["roc_curve"][class_label] = {
+                    "fpr": fpr.tolist(),
+                    "tpr": tpr.tolist(),
                 }
 
-                # Compute macro-average ROC AUC
-                metrics["roc_auc"]["macro"] = roc_auc_score(
-                    y_true_bin, y_prob, average="macro", multi_class="ovr"
-                )
+            # Micro and macro averaging
+            fpr_micro, tpr_micro, _ = roc_curve(y_true_bin.ravel(), y_prob.ravel())
+            metrics["roc_auc"]["micro"] = auc(fpr_micro, tpr_micro)
+            metrics["roc_curve"]["micro"] = {
+                "fpr": fpr_micro.tolist(),
+                "tpr": tpr_micro.tolist(),
+            }
+            metrics["roc_auc"]["macro"] = roc_auc_score(
+                y_true_bin, y_prob, average="macro", multi_class="ovr"
+            )
 
         return metrics
 
     def train_linear_probe(self, df: pd.DataFrame) -> Dict[str, Any]:
-        """Train an optimized linear probe classifier."""
+        """Train an optimized linear probe classifier with proper binary/multiclass handling."""
         logging.info("Training linear probe classifier...")
 
         # Prepare data
         X = self.prepare_hidden_states(list(df["hidden_state"]))
-        y = df["label"]
+
+        # Encode labels
+        y = self.label_encoder.fit_transform(df["label"])
+        classes = np.unique(y)
+        class_labels = self.label_encoder.classes_
+        n_classes = len(classes)
+
+        logging.info(f"Number of classes: {n_classes}")
+        logging.info(f"Classes: {class_labels}")
 
         # Split data
         X_train, X_test, y_train, y_test = train_test_split(
@@ -150,40 +153,47 @@ class ModelTrainer:
             stratify=y,
         )
 
-        # Modify parameters for multiclass
-        params = self.config.linear_probe_params.copy()
-        if len(np.unique(y)) > 2:
-            # For multiclass, we need to use different solvers
-            params["solver"] = ["lbfgs", "newton-cg", "sag"]
-            params["penalty"] = [
-                "l2"
-            ]  # Only l2 penalty is supported with these solvers
-
-        # Grid search for best parameters
-        clf = LogisticRegression(
-            max_iter=self.config.max_iter,
+        # Create base classifier with common parameters
+        base_classifier = LogisticRegression(
             random_state=self.config.random_state,
-            multi_class="ovr",  # Use one-vs-rest for multiclass
+            max_iter=self.config.max_iter,
         )
 
+        # For multiclass, wrap with OneVsRestClassifier
+        if n_classes > 2:
+            classifier = OneVsRestClassifier(base_classifier)
+        else:
+            classifier = base_classifier
+
+        # Grid search
         grid_search = GridSearchCV(
-            clf, params, cv=self.config.cv_folds, scoring="accuracy", n_jobs=-1
+            classifier,
+            self.config.probe_params,
+            cv=self.config.cv_folds,
+            scoring="accuracy",
+            n_jobs=-1,
         )
 
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
             grid_search.fit(X_train, y_train)
 
-        # Get best model
+        # Get predictions
         best_model = grid_search.best_estimator_
         y_pred = best_model.predict(X_test)
         y_prob = best_model.predict_proba(X_test)
 
         # Compute metrics
-        metrics = self.compute_metrics(y_test, y_pred, y_prob)
+        metrics = self.compute_metrics(y_test, y_pred, y_prob, classes, class_labels)
         cv_scores = cross_val_score(
             best_model, X_train, y_train, cv=self.config.cv_folds
         )
+
+        # Get feature importance
+        if n_classes == 2:
+            coefficients = [best_model.coef_[0].tolist()]
+        else:
+            coefficients = [coef.tolist() for coef in best_model.estimators_[0].coef_]
 
         results = {
             "model": best_model,
@@ -194,9 +204,10 @@ class ModelTrainer:
                 "scores": cv_scores.tolist(),
             },
             "metrics": metrics,
-            "feature_importance": {
-                "coefficients": [coef.tolist() for coef in best_model.coef_]
-            },
+            "feature_importance": {"coefficients": coefficients},
+            "n_classes": n_classes,
+            "classes": class_labels.tolist(),
+            "label_encoder": self.label_encoder,
         }
 
         logging.info(f"Linear Probe Best Accuracy: {metrics['accuracy']:.4f}")
@@ -206,9 +217,13 @@ class ModelTrainer:
         """Train an optimized decision tree classifier."""
         logging.info("Training decision tree classifier...")
 
-        # Prepare data
         X = np.stack(df["features"].values)
-        y = df["label"]
+
+        # Encode labels
+        y = self.label_encoder.fit_transform(df["label"])
+        classes = np.unique(y)
+        class_labels = self.label_encoder.classes_
+        n_classes = len(classes)
 
         X_train, X_test, y_train, y_test = train_test_split(
             X,
@@ -218,7 +233,6 @@ class ModelTrainer:
             stratify=y,
         )
 
-        # Grid search for best parameters
         clf = DecisionTreeClassifier(random_state=self.config.random_state)
         grid_search = GridSearchCV(
             clf,
@@ -230,13 +244,11 @@ class ModelTrainer:
 
         grid_search.fit(X_train, y_train)
 
-        # Get best model
         best_model = grid_search.best_estimator_
         y_pred = best_model.predict(X_test)
         y_prob = best_model.predict_proba(X_test)
 
-        # Compute metrics
-        metrics = self.compute_metrics(y_test, y_pred, y_prob)
+        metrics = self.compute_metrics(y_test, y_pred, y_prob, classes, class_labels)
         cv_scores = cross_val_score(
             best_model, X_train, y_train, cv=self.config.cv_folds
         )
@@ -253,6 +265,9 @@ class ModelTrainer:
             "feature_importance": {
                 "importance": best_model.feature_importances_.tolist()
             },
+            "n_classes": n_classes,
+            "classes": class_labels.tolist(),
+            "label_encoder": self.label_encoder,
         }
 
         logging.info(f"Decision Tree Best Accuracy: {metrics['accuracy']:.4f}")
@@ -270,15 +285,20 @@ class ModelTrainer:
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Save model
-        model_path = output_dir / f"{model_name}_{layer}_{model_type}_model.joblib"
-        joblib.dump(results["model"], model_path)
+        # Save model and label encoder together
+        model_artifacts = {
+            "model": results["model"],
+            "label_encoder": results["label_encoder"],
+        }
+        model_path = output_dir / f"{model_type}_model.joblib"
+        joblib.dump(model_artifacts, model_path)
 
-        # Save metrics and results
+        # Remove non-serializable objects for JSON
         results_copy = results.copy()
-        results_copy.pop("model")  # Remove model object for JSON serialization
+        results_copy.pop("model")
+        results_copy.pop("label_encoder")
 
-        metrics_path = output_dir / f"{model_name}_{layer}_{model_type}_metrics.json"
+        metrics_path = output_dir / f"{model_type}_metrics.json"
         with open(metrics_path, "w") as f:
             json.dump(results_copy, f, indent=2)
 
@@ -295,11 +315,9 @@ def run_training_pipeline(
     """Run the complete training pipeline."""
     trainer = ModelTrainer(config)
 
-    # Train linear probe
     linear_results = trainer.train_linear_probe(df)
     trainer.save_results(linear_results, output_dir, model_name, layer, "linear_probe")
 
-    # Train decision tree
     tree_results = trainer.train_decision_tree(df)
     trainer.save_results(tree_results, output_dir, model_name, layer, "decision_tree")
 
