@@ -5,25 +5,21 @@ from sae_lens import SAE
 import logging
 import argparse
 from pathlib import Path
-import matplotlib.pyplot as plt
 import re
 import json
 import os
-import dash
 from dash import dcc, html
-import webbrowser
-import threading
-import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 from sklearn.preprocessing import LabelEncoder
 import gc
-
+import warnings
 from classifiers import ModelTrainer, TrainingConfig
 from dash_utils import NumpyJSONEncoder, prepare_dashboard_data, get_tree_info
 from models import get_sae_config
 
 from utils import get_save_directory, setup_logging
+from tqdm import tqdm
 
 # Configure logging
 logging.basicConfig(
@@ -57,12 +53,6 @@ def parse_arguments():
         type=str,
         required=True,
         help="Model name (e.g., google/gemma-2b-it)",
-    )
-    parser.add_argument(
-        "--checkpoint",
-        type=str,
-        required=True,
-        help="SAE model name (e.g., google/gemma-2b-it)",
     )
     parser.add_argument(
         "--model-type",
@@ -167,133 +157,241 @@ def get_metadata_path(input_dir, model_name, layer):
     return metadata_path
 
 
-def load_npz_file(npz_path, sample_id, label):
+def load_npz_file(npz_path, sample_id, label, progress_dict=None):
+    """Load NPZ file with progress tracking."""
     try:
-        npz_data = np.load(npz_path)
-        return {
-            "sample_id": sample_id,
-            "label": label,
-            "hidden_state": npz_data["hidden_state"],
-            "sae_acts": npz_data.get("sae_acts", None),
-        }
+        with np.load(npz_path) as npz_data:
+            result = {
+                "sample_id": sample_id,
+                "label": label,
+                "hidden_state": npz_data["hidden_state"].astype(np.float16),
+                "sae_acts": npz_data.get("sae_acts", None)
+            }
+            if result["sae_acts"] is not None:
+                result["sae_acts"] = result["sae_acts"].astype(np.float16)
+            
+            # Update progress if dictionary provided
+            if progress_dict is not None:
+                progress_dict['loaded_files'] += 1
+                
+            return result
     except Exception as e:
         logging.error(f"Error processing file {npz_path}: {e}")
         return None
 
-
-def process_batch(batch, sae, cfg_dict, last_token, top_n, device):
-    batch_df = pd.DataFrame(batch)
-
-    if "sae_acts" in batch_df.columns and batch_df["sae_acts"].iloc[0] is not None:
-        if batch_df["sae_acts"].iloc[0].shape[-1] != cfg_dict["d_sae"]:
-            raise ValueError("SAE activations shape mismatch")
-        if batch_df["sae_acts"].iloc[0].shape[0] == 1:
-            batch_df["sae_acts"] = batch_df["sae_acts"].apply(
-                lambda x: x[0].astype("float16")
-            )
-    else:
-        if last_token:
-            last_tokens = [state[-1] for state in batch_df["hidden_state"]]
-            hidden_tensor = (
-                torch.tensor(np.stack(last_tokens)).to(torch.float32).to(device)
-            )
-            batch_df["sae_acts"] = sae.encode(hidden_tensor).cpu().numpy()
+def process_batch(batch, sae, cfg_dict, last_token, top_n, device, progress_dict=None):
+    """Process batch with progress tracking."""
+    try:
+        if progress_dict is not None:
+            progress_dict['processing_status'] = 'Converting to DataFrame'
+            
+        batch_df = pd.DataFrame(batch)
+        
+        if "sae_acts" in batch_df.columns and batch_df["sae_acts"].iloc[0] is not None:
+            if batch_df["sae_acts"].iloc[0].shape[-1] != cfg_dict["d_sae"]:
+                raise ValueError("SAE activations shape mismatch")
+            
+            if progress_dict is not None:
+                progress_dict['processing_status'] = 'Processing SAE activations'
+                
+            def process_sae_acts(x, idx=None):
+                if x is None:
+                    return None
+                if x.shape[0] == 1:
+                    x = x[0]
+                if last_token:
+                    x = x[-1]
+                if progress_dict is not None:
+                    progress_dict['processed_items'] += 1
+                return x.astype(np.float16)
+            
+            # Process with progress tracking
+            total_items = len(batch_df)
+            if progress_dict is not None:
+                progress_dict['total_items'] = total_items
+                progress_dict['processed_items'] = 0
+            
+            batch_df["sae_acts"] = batch_df["sae_acts"].apply(process_sae_acts)
+            
         else:
-            batch_df["sae_acts"] = batch_df["hidden_state"].apply(
-                lambda x: sae.encode(torch.tensor(x).to(device).to(torch.float32))
-                .cpu()
-                .numpy()
-            )
+            warnings.warn("SAE activations not found in batch, encoding hidden states")
+            if progress_dict is not None:
+                progress_dict['processing_status'] = 'Encoding hidden states'
+            
+            if last_token:
+                last_tokens = np.stack([state[-1] for state in batch_df["hidden_state"]])
+                with torch.no_grad():
+                    hidden_tensor = torch.tensor(last_tokens, dtype=torch.float32, device=device)
+                    batch_df["sae_acts"] = sae.encode(hidden_tensor).cpu().numpy().astype(np.float16)
+                del hidden_tensor
+                torch.cuda.empty_cache() if torch.cuda.is_available() else None
+            else:
+                def encode_sequence(x, idx=None):
+                    with torch.no_grad():
+                        tensor = torch.tensor(x, dtype=torch.float32, device=device)
+                        result = sae.encode(tensor).cpu().numpy().astype(np.float16)
+                        del tensor
+                        if progress_dict is not None:
+                            progress_dict['processed_items'] += 1
+                        return result
+                
+                if progress_dict is not None:
+                    progress_dict['total_items'] = len(batch_df)
+                    progress_dict['processed_items'] = 0
+                
+                batch_df["sae_acts"] = batch_df["hidden_state"].apply(encode_sequence)
+                torch.cuda.empty_cache() if torch.cuda.is_available() else None
+        
+        if progress_dict is not None:
+            progress_dict['processing_status'] = 'Generating features'
+            progress_dict['processed_items'] = 0
+        
+        batch_df["features"] = batch_df["sae_acts"].apply(
+            lambda x: optimized_top_n_to_one_hot(x, top_n, progress_dict)
+        )
+        
+        batch_df.drop("sae_acts", axis=1, inplace=True)
+        
+        return batch_df
+    
+    except Exception as e:
+        logging.error(f"Error in process_batch: {e}")
+        raise
 
-    batch_df["features"] = batch_df["sae_acts"].apply(
-        lambda x: optimized_top_n_to_one_hot(x, top_n)
-    )
-
-    return batch_df
-
-
-def process_data(
-    metadata_df,
-    sae,
-    cfg_dict,
-    last_token=False,
-    top_n=5,
-    batch_size=1000,
-    num_workers=4,
-):
-    """
-    Process data samples and generate features efficiently.
-
-    Args:
-        metadata_df (pd.DataFrame): Metadata DataFrame
-        sae (SAE): Loaded SAE model
-        cfg_dict (dict): SAE configuration
-        last_token (bool): Whether to use only last token
-        top_n (int): Number of top values for feature extraction
-        batch_size (int): Number of samples to process in each batch
-        num_workers (int): Number of worker processes
-
-    Returns:
-        pd.DataFrame: Processed DataFrame with features
-    """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    logging.info(f"Processing {len(metadata_df)} samples")
-
-    # Load NPZ files in parallel
-    with ProcessPoolExecutor(max_workers=num_workers) as executor:
-        load_func = partial(load_npz_file)
-        futures = [
-            executor.submit(load_func, row["npz_file"], row["sample_id"], row["label"])
-            for _, row in metadata_df.iterrows()
-        ]
-
-        data_samples = []
-        for future in as_completed(futures):
-            result = future.result()
-            if result:
-                data_samples.append(result)
-
-    # Process data in batches
-    processed_dfs = []
-    for i in range(0, len(data_samples), batch_size):
-        batch = data_samples[i : i + batch_size]
-        batch_df = process_batch(batch, sae, cfg_dict, last_token, top_n, device)
-        processed_dfs.append(batch_df)
-
-    # Combine all processed batches
-    loaded_data_df = pd.concat(processed_dfs, ignore_index=True)
-
-    # clear memory
-    del data_samples
-    del processed_dfs
-    gc.collect()
-
-    return loaded_data_df
-
-
-def optimized_top_n_to_one_hot(array, top_n, binary=False):
-    """Generate sparse one-hot representation."""
+def optimized_top_n_to_one_hot(array, top_n, progress_dict=None, binary=False):
+    """Memory-efficient top-n to one-hot conversion with progress tracking."""
+    if array is None:
+        return None
+    
     token_length, dim_size = array.shape
-    sparse_array = np.zeros_like(array)
-
-    # Get indices of top n values for each row
+    
     top_n_indices = np.argpartition(-array, top_n, axis=1)[:, :top_n]
-
-    # Create row indices array
+    sparse_array = np.zeros((token_length, dim_size), dtype=np.uint8)
     row_indices = np.arange(token_length)[:, np.newaxis]
-    row_indices = np.broadcast_to(row_indices, (token_length, top_n))
-
-    # Set values to 1 at top n positions
     sparse_array[row_indices, top_n_indices] = 1
-
-    # Sum along token dimension
+    
     result = np.sum(sparse_array, axis=0)
-
+    
+    del sparse_array, row_indices, top_n_indices
+    
+    if progress_dict is not None:
+        progress_dict['processed_items'] += 1
+    
     if binary:
-        return result.astype(np.bool)
-
+        return result.astype(np.bool_)
     return result.astype(np.uint16)
+
+def process_data(metadata_df, sae, cfg_dict, last_token=False, top_n=5, batch_size=1000, num_workers=10):
+    """Main processing function with detailed progress tracking."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logging.info(f"Processing {len(metadata_df)} samples")
+    
+    # Progress tracking dictionary
+    progress = {
+        'total_files': len(metadata_df),
+        'loaded_files': 0,
+        'current_batch': 0,
+        'total_batches': (len(metadata_df) + batch_size - 1) // batch_size,
+        'processing_status': 'Starting',
+        'processed_items': 0,
+        'total_items': 0
+    }
+    
+    num_batches = progress['total_batches']
+    processed_dfs = [None] * num_batches
+    batch_idx = 0
+    
+    # Main progress bar for overall process
+    with tqdm(total=len(metadata_df), desc="Overall Progress") as pbar:
+        try:
+            for i in range(0, len(metadata_df), batch_size):
+                progress['current_batch'] += 1
+                progress['processing_status'] = f'Processing batch {progress["current_batch"]}/{num_batches}'
+                
+                batch_metadata = metadata_df.iloc[i:i + batch_size].copy()
+                
+                # Load NPZ files with progress tracking
+                batch_data = []
+                progress['loaded_files'] = 0
+                with ProcessPoolExecutor(max_workers=num_workers) as executor:
+                    futures = {
+                        executor.submit(
+                            load_npz_file, 
+                            row["npz_file"], 
+                            row["sample_id"], 
+                            row["label"],
+                            progress
+                        ): idx 
+                        for idx, (_, row) in enumerate(batch_metadata.iterrows())
+                    }
+                    
+                    # Progress bar for file loading
+                    with tqdm(total=len(futures), desc="Loading NPZ files") as load_pbar:
+                        for future in as_completed(futures):
+                            result = future.result()
+                            if result:
+                                batch_data.append(result)
+                            future.cancel()
+                            load_pbar.update(1)
+                
+                if batch_data:
+                    # Process batch with progress tracking
+                    progress['processing_status'] = 'Processing batch'
+                    progress['processed_items'] = 0
+                    progress['total_items'] = len(batch_data)
+                    
+                    # Progress bar for batch processing
+                    with tqdm(total=len(batch_data), desc="Processing items") as proc_pbar:
+                        def update_proc_bar():
+                            proc_pbar.n = progress['processed_items']
+                            proc_pbar.refresh()
+                        
+                        batch_df = process_batch(
+                            batch_data, 
+                            sae, 
+                            cfg_dict, 
+                            last_token, 
+                            top_n, 
+                            device, 
+                            progress
+                        )
+                        update_proc_bar()
+                        
+                        processed_dfs[batch_idx] = batch_df
+                        batch_idx += 1
+                
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                
+                # Update overall progress
+                pbar.update(len(batch_metadata))
+                pbar.set_description(
+                    f"Overall Progress - Batch {progress['current_batch']}/{num_batches}"
+                )
+                del batch_metadata, batch_data
+                gc.collect()
+
+        
+        except Exception as e:
+            logging.error(f"Error during processing: {str(e)}")
+            del processed_dfs
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            raise
+        
+        try:
+            # Final concatenation with progress tracking
+            progress['processing_status'] = 'Concatenating results'
+            processed_dfs = [df for df in processed_dfs if df is not None]
+            final_df = pd.concat(processed_dfs, ignore_index=True)
+            return final_df
+        
+        finally:
+            del processed_dfs
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
 
 def save_features(df, layer_dir, model_type):
@@ -302,11 +400,9 @@ def save_features(df, layer_dir, model_type):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     label_encoder = LabelEncoder()
-    layer = int(layer_dir.split("/")[-2].split("_")[1])
-    print(f"Layer: {layer}")
-
+    print(df.head())
     # # Convert hidden_states from pandas Series to numpy array
-    hidden_states_array = np.array([i[layer] for i in df["hidden_state"]])
+    hidden_states_array = np.array([i[0] for i in df["hidden_state"]])
 
     # Save features
     output_file = output_dir / f"{model_type}_features.npz"
@@ -374,10 +470,10 @@ def main():
             # Process data (using functions from previous script)
             metadata_df = pd.read_csv(metadata_path)
 
-            if args.model_type == "llm" and "gemma-2" in args.checkpoint.lower():
+            if args.model_type == "llm" and "gemma-2" in args.model_name.lower():
                 # Get SAE configuration based on model architecture
                 sae_location, feature_id = get_sae_config(
-                    args.checkpoint, layer, args.sae_location, args.width
+                    args.model_name, layer, args.sae_location, args.width
                 )
 
                 logging.info(
@@ -390,7 +486,7 @@ def main():
                 )
 
             else:
-                if "it" in args.checkpoint.lower():
+                if "it" in args.model_name.lower():
                     sae_release = "gemma-2b-it"
                 else:
                     sae_release = "gemma-2b"
