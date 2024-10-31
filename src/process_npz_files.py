@@ -16,7 +16,8 @@ import threading
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
-
+from sklearn.preprocessing import LabelEncoder
+import gc
 
 from classifiers import ModelTrainer, TrainingConfig
 from dash_utils import NumpyJSONEncoder, prepare_dashboard_data, get_tree_info
@@ -187,7 +188,9 @@ def process_batch(batch, sae, cfg_dict, last_token, top_n, device):
         if batch_df["sae_acts"].iloc[0].shape[-1] != cfg_dict["d_sae"]:
             raise ValueError("SAE activations shape mismatch")
         if batch_df["sae_acts"].iloc[0].shape[0] == 1:
-            batch_df["sae_acts"] = batch_df["sae_acts"].apply(lambda x: x[0])
+            batch_df["sae_acts"] = batch_df["sae_acts"].apply(
+                lambda x: x[0].astype("float16")
+            )
     else:
         if last_token:
             last_tokens = [state[-1] for state in batch_df["hidden_state"]]
@@ -203,7 +206,7 @@ def process_batch(batch, sae, cfg_dict, last_token, top_n, device):
             )
 
     batch_df["features"] = batch_df["sae_acts"].apply(
-        lambda x: optimized_top_n_to_one_hot(torch.tensor(x), top_n).cpu().numpy()
+        lambda x: optimized_top_n_to_one_hot(x, top_n)
     )
 
     return batch_df
@@ -261,25 +264,49 @@ def process_data(
     # Combine all processed batches
     loaded_data_df = pd.concat(processed_dfs, ignore_index=True)
 
+    # clear memory
+    del data_samples
+    del processed_dfs
+    gc.collect()
+
     return loaded_data_df
 
 
-def optimized_top_n_to_one_hot(tensor, top_n, binary=False):
+def optimized_top_n_to_one_hot(array, top_n, binary=False):
     """Generate sparse one-hot representation."""
-    token_length, dim_size = tensor.shape
-    sparse_tensor = torch.zeros_like(tensor)
-    top_n_indices = torch.topk(tensor, top_n, dim=1).indices
-    sparse_tensor.scatter_(1, top_n_indices, 1)
+    token_length, dim_size = array.shape
+    sparse_array = np.zeros_like(array)
+
+    # Get indices of top n values for each row
+    top_n_indices = np.argpartition(-array, top_n, axis=1)[:, :top_n]
+
+    # Create row indices array
+    row_indices = np.arange(token_length)[:, np.newaxis]
+    row_indices = np.broadcast_to(row_indices, (token_length, top_n))
+
+    # Set values to 1 at top n positions
+    sparse_array[row_indices, top_n_indices] = 1
+
+    # Sum along token dimension
+    result = np.sum(sparse_array, axis=0)
 
     if binary:
-        return (sparse_tensor.sum(dim=0).to(device) != 0).to(torch.int32)
-    return sparse_tensor.sum(dim=0).to(device)
+        return result.astype(np.bool)
+
+    return result.astype(np.uint16)
 
 
 def save_features(df, layer_dir, model_type):
     """Save processed features."""
     output_dir = Path(layer_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    label_encoder = LabelEncoder()
+    layer = int(layer_dir.split("/")[-2].split("_")[1])
+    print(f"Layer: {layer}")
+
+    # # Convert hidden_states from pandas Series to numpy array
+    hidden_states_array = np.array([i[layer] for i in df["hidden_state"]])
 
     # Save features
     output_file = output_dir / f"{model_type}_features.npz"
@@ -288,7 +315,8 @@ def save_features(df, layer_dir, model_type):
         output_file,
         features=np.stack(df["features"].values),
         sample_ids=df["sample_id"].values,
-        labels=df["label"].values,
+        hidden_states=hidden_states_array,
+        label=label_encoder.fit_transform(df["label"]),
     )
 
     # Save metadata
@@ -300,6 +328,17 @@ def save_features(df, layer_dir, model_type):
 
     logging.info(f"Saved features to {output_file}")
     logging.info(f"Saved metadata to {metadata_file}")
+
+    return label_encoder
+
+
+def load_features(layer_dir, model_type):
+    """Load processed features."""
+    input_dir = Path(layer_dir)
+
+    file_path = input_dir / f"{model_type}_features.npz"
+
+    return np.load(file_path, allow_pickle=True)
 
 
 def main():
@@ -373,11 +412,13 @@ def main():
             )
 
             # Save processed features
-            save_features(
+            label_encoder = save_features(
                 df=processed_df,
                 layer_dir=layer_save_dir,
                 model_type=args.model_type,
             )
+
+            del processed_df
 
             # Initialize training configuration
             config = TrainingConfig(
@@ -387,11 +428,15 @@ def main():
             )
 
             # Initialize model trainer
-            trainer = ModelTrainer(config)
+            trainer = ModelTrainer(config, label_encoder)
+
+            # Reload features
+            features = load_features(layer_save_dir, args.model_type)
 
             # Train models with enhanced pipeline
-            linear_results = trainer.train_linear_probe(processed_df)
-            tree_results = trainer.train_decision_tree(processed_df)
+            linear_results = trainer.train_linear_probe(features, hidden=True)
+            linear_results2 = trainer.train_linear_probe(features, hidden=False)
+            tree_results = trainer.train_decision_tree(features)
 
             # Save results using new save method
             trainer.save_results(

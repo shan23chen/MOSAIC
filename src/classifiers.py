@@ -48,10 +48,10 @@ class TrainingConfig:
 class ModelTrainer:
     """Class to handle model training and evaluation with modern sklearn practices."""
 
-    def __init__(self, config: TrainingConfig):
+    def __init__(self, config: TrainingConfig, label_encoder: LabelEncoder = None):
         self.config = config
         self.scaler = StandardScaler()
-        self.label_encoder = LabelEncoder()
+        self.label_encoder = label_encoder
 
     def prepare_hidden_states(
         self, hidden_states: List[np.ndarray], max_length: int = None
@@ -128,15 +128,18 @@ class ModelTrainer:
 
         return metrics
 
-    def train_linear_probe(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def train_linear_probe(self, df, hidden=True) -> Dict[str, Any]:
         """Train an optimized linear probe classifier with proper binary/multiclass handling."""
         logging.info("Training linear probe classifier...")
 
-        # Prepare data
-        X = self.prepare_hidden_states(list(df["hidden_state"]))
+        if hidden:
+            # Prepare data
+            X = df["hidden_states"]
+        else:
+            X = df["features"]
 
         # Encode labels
-        y = self.label_encoder.fit_transform(df["label"])
+        y = df["label"]
         classes = np.unique(y)
         class_labels = self.label_encoder.classes_
         n_classes = len(classes)
@@ -213,14 +216,17 @@ class ModelTrainer:
         logging.info(f"Linear Probe Best Accuracy: {metrics['accuracy']:.4f}")
         return results
 
-    def train_decision_tree(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def train_decision_tree(self, df, hidden=True) -> Dict[str, Any]:
         """Train an optimized decision tree classifier."""
         logging.info("Training decision tree classifier...")
 
-        X = np.stack(df["features"].values)
+        if hidden:
+            X = df["hidden_states"]
+        else:
+            X = df["features"]
 
         # Encode labels
-        y = self.label_encoder.fit_transform(df["label"])
+        y = df["label"]
         classes = np.unique(y)
         class_labels = self.label_encoder.classes_
         n_classes = len(classes)
