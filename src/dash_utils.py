@@ -68,6 +68,7 @@ def prepare_dashboard_data(
     linear_results: Dict[str, Any],
     tree_results: Dict[str, Any],
     args: argparse.Namespace,
+    layer: str,
     tree_info: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Prepare structured dashboard data from model results."""
@@ -76,7 +77,7 @@ def prepare_dashboard_data(
         "metadata": {
             "model": {
                 "name": args.model_name,
-                "layer": args.layer,
+                "layer": layer,
                 "type": args.model_type,
             },
             "training": {

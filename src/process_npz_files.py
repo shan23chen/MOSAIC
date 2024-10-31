@@ -5,14 +5,9 @@ from sae_lens import SAE
 import logging
 import argparse
 from pathlib import Path
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier, plot_tree
-from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import re
 import json
-from datetime import datetime
 import os
 import dash
 from dash import dcc, html
@@ -23,6 +18,9 @@ import time
 
 from classifiers import ModelTrainer, TrainingConfig
 from dash_utils import NumpyJSONEncoder, prepare_dashboard_data, get_tree_info
+from models import get_sae_config
+
+from utils import get_save_directory, setup_logging
 
 # Configure logging
 logging.basicConfig(
@@ -46,10 +44,22 @@ def parse_arguments():
         help="Input directory containing run.py outputs",
     )
     parser.add_argument(
+        "--dashboard-dir",
+        type=str,
+        required=True,
+        help="Dashboard results directory containing classifier outputs",
+    )
+    parser.add_argument(
         "--model-name",
         type=str,
         required=True,
         help="Model name (e.g., google/gemma-2b-it)",
+    )
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        required=True,
+        help="SAE model name (e.g., google/gemma-2b-it)",
     )
     parser.add_argument(
         "--model-type",
@@ -59,13 +69,31 @@ def parse_arguments():
         help="Model type (vlm or llm)",
     )
     parser.add_argument(
-        "--layer", type=str, default="12", help="Layer number to process"
+        "--sae_location", type=str, help="SAE location e.g. mlp or res", required=True
     )
     parser.add_argument(
-        "--sae-release",
+        "--layer",
         type=str,
+        help="Comma-separated layers to extract hidden states from (e.g., '7,8,9')",
         required=True,
-        help="SAE release name (e.g., gemma-2b)",
+    )
+    parser.add_argument(
+        "--width",
+        type=str,
+        default="16k",
+        help="Width of the SAE encoder (e.g. 16k, 524k, 1m)",
+    )
+    parser.add_argument(
+        "--dataset-name",
+        type=str,
+        help="Dataset name (e.g., OncQA, MedQA, etc.)",
+        required=True,
+    )
+    parser.add_argument(
+        "--dataset-split",
+        type=str,
+        help="Dataset split (e.g., train, dev, test)",
+        required=True,
     )
     parser.add_argument(
         "--top-n",
@@ -74,12 +102,6 @@ def parse_arguments():
         help="Number of top values for feature extraction",
     )
     parser.add_argument("--last-token", action="store_true", help="Use only last token")
-    parser.add_argument(
-        "--output-dir",
-        type=str,
-        default="processed_features",
-        help="Output directory for processed features",
-    )
     parser.add_argument(
         "--test-size",
         type=float,
@@ -138,18 +160,8 @@ def get_metadata_path(input_dir, model_name, layer):
     metadata_path = (
         Path(input_dir) / f"{clean_model_name}_{layer}_sae_activations_metadata.csv"
     )
+    logging.info(f"Metadata path: {metadata_path}")
     return metadata_path
-
-
-def load_sae(layer, device, sae_release):
-    """Load SAE model for specific layer."""
-    logging.info(f"Loading SAE model from release '{sae_release}', layer '{layer}'")
-    sae, cfg_dict, sparsity = SAE.from_pretrained(
-        release=f"{sae_release}-res-jb",
-        sae_id=f"blocks.{layer}.hook_resid_post",
-        device=device,
-    )
-    return sae, cfg_dict, sparsity
 
 
 def process_data(metadata_df, sae, cfg_dict, last_token=False, top_n=5):
@@ -168,6 +180,7 @@ def process_data(metadata_df, sae, cfg_dict, last_token=False, top_n=5):
     """
     # Load NPZ files
     data_samples = []
+    logging.info(f"Processing {len(metadata_df)} samples")
     for idx in range(len(metadata_df)):
         try:
             npz_path = metadata_df.at[idx, "npz_file"]
@@ -232,16 +245,14 @@ def optimized_top_n_to_one_hot(tensor, top_n, binary=False):
     return sparse_tensor.sum(dim=0).to(device)
 
 
-def save_features(df, output_dir, model_name, layer, model_type):
+def save_features(df, layer_dir, model_type):
     """Save processed features."""
-    output_dir = Path(output_dir)
+    output_dir = Path(layer_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Clean model name
-    clean_model_name = model_name.split("/")[-1]
-
     # Save features
-    output_file = output_dir / f"{clean_model_name}_{layer}_{model_type}_features.npz"
+    output_file = output_dir / f"{model_type}_features.npz"
+    logging.info(f"Saving features to {output_file}")
     np.savez_compressed(
         output_file,
         features=np.stack(df["features"].values),
@@ -250,7 +261,10 @@ def save_features(df, output_dir, model_name, layer, model_type):
     )
 
     # Save metadata
-    metadata_file = output_dir / f"{clean_model_name}_{layer}_{model_type}_metadata.csv"
+    logging.info(
+        f"Inside Save features- Saving metadata to {output_dir} not using get metadata path"
+    )
+    metadata_file = output_dir / f"{model_type}_metadata.csv"
     df[["sample_id", "label"]].to_csv(metadata_file, index=False)
 
     logging.info(f"Saved features to {output_file}")
@@ -260,93 +274,153 @@ def save_features(df, output_dir, model_name, layer, model_type):
 def main():
     """Main execution function."""
     args = parse_arguments()
+    # Parse layers from comma-separated string
+    layers = [int(layer.strip()) for layer in args.layer.split(",")]
+    logging.info(f"Processing layers: {layers}")
 
-    try:
-        # Get metadata path (using the corrected version from previous script)
-        metadata_path = get_metadata_path(args.input_dir, args.model_name, args.layer)
-        if not metadata_path.exists():
-            raise FileNotFoundError(f"Metadata file not found: {metadata_path}")
-
-        # Process data (using functions from previous script)
-        metadata_df = pd.read_csv(metadata_path)
-        sae, cfg_dict, sparsity = load_sae(args.layer, device, args.sae_release)
-        processed_df = process_data(
-            metadata_df=metadata_df,
-            sae=sae,
-            cfg_dict=cfg_dict,
-            last_token=args.last_token,
-            top_n=args.top_n,
+    for layer in layers:
+        # Create layer-specific save directory
+        layer_save_dir = get_save_directory(
+            args.input_dir,
+            args.model_name,
+            args.dataset_name,
+            args.dataset_split,
+            layer,
+            args.width,
         )
+        os.makedirs(layer_save_dir, exist_ok=True)
 
-        # Save processed features
-        save_features(
-            df=processed_df,
-            output_dir=args.output_dir,
-            model_name=args.model_name,
-            layer=args.layer,
-            model_type=args.model_type,
-        )
+        # Setup logging for this layer
+        setup_logging(layer_save_dir)
+        logging.info(f"Processing layer {layer} with save directory: {layer_save_dir}")
+        logging.info(f"Starting processing with arguments: {args}")
 
-        # Initialize training configuration
-        config = TrainingConfig(
-            test_size=args.test_size,
-            random_state=args.random_state,
-            cv_folds=args.cv_folds if hasattr(args, "cv_folds") else 5,
-        )
+        try:
+            # Get metadata path
+            metadata_path = get_metadata_path(layer_save_dir, args.model_name, layer)
+            if not metadata_path.exists():
+                raise FileNotFoundError(f"Metadata file not found: {metadata_path}")
 
-        # Initialize model trainer
-        trainer = ModelTrainer(config)
+            # Process data (using functions from previous script)
+            metadata_df = pd.read_csv(metadata_path)
 
-        # Train models with enhanced pipeline
-        linear_results = trainer.train_linear_probe(processed_df)
-        tree_results = trainer.train_decision_tree(processed_df)
+            if args.model_type == "llm" and "gemma-2" in args.checkpoint.lower():
+                # Get SAE configuration based on model architecture
+                sae_location, feature_id = get_sae_config(
+                    args.checkpoint, layer, args.sae_location, args.width
+                )
 
-        # Save results using new save method
-        trainer.save_results(
-            linear_results, args.output_dir, args.model_name, args.layer, "linear_probe"
-        )
+                logging.info(
+                    f"Loading SAE model from release {sae_location}, feature {feature_id}"
+                )
+                sae, cfg_dict, sparsity = SAE.from_pretrained(
+                    release=f"{sae_location}",
+                    sae_id=feature_id,
+                    device=device,
+                )
 
-        trainer.save_results(
-            tree_results, args.output_dir, args.model_name, args.layer, "decision_tree"
-        )
+            else:
+                if "it" in args.checkpoint.lower():
+                    sae_release = "gemma-2b-it"
+                else:
+                    sae_release = "gemma-2b"
+                logging.info(
+                    f"Loading SAE model from release {sae_release}, layer {layer}"
+                )
+                sae, cfg_dict, sparsity = SAE.from_pretrained(
+                    release=f"{sae_release}-res-jb",
+                    sae_id=f"blocks.{layer}.hook_resid_post",
+                    device=device,
+                )
 
-        logging.info("Processing and classification completed successfully")
+            processed_df = process_data(
+                metadata_df=metadata_df,
+                sae=sae,
+                cfg_dict=cfg_dict,
+                last_token=args.last_token,
+                top_n=args.top_n,
+            )
 
-        # Prepare and save dashboard data
-        dashboard_data = prepare_dashboard_data(
-            linear_results=linear_results,
-            tree_results=tree_results,
-            args=args,
-            tree_info=get_tree_info(tree_results["model"]),
-        )
+            # Save processed features
+            save_features(
+                df=processed_df,
+                layer_dir=layer_save_dir,
+                model_type=args.model_type,
+            )
 
-        # Save dashboard data with proper formatting
-        dashboard_path = (
-            Path(args.output_dir)
-            / "dashboards"
-            / f"{args.model_name.split('/')[-1]}_{args.layer}_dashboard.json"
-        )
-        dashboard_path.parent.mkdir(parents=True, exist_ok=True)
+            # Initialize training configuration
+            config = TrainingConfig(
+                test_size=args.test_size,
+                random_state=args.random_state,
+                cv_folds=args.cv_folds if hasattr(args, "cv_folds") else 5,
+            )
 
-        with open(dashboard_path, "w") as f:
-            json.dump(dashboard_data, f, indent=2, cls=NumpyJSONEncoder)
+            # Initialize model trainer
+            trainer = ModelTrainer(config)
 
-        logging.info(f"Dashboard data saved to {dashboard_path}")
+            # Train models with enhanced pipeline
+            linear_results = trainer.train_linear_probe(processed_df)
+            tree_results = trainer.train_decision_tree(processed_df)
 
-        # # Start the Dash server
-        # dash_thread = threading.Thread(
-        #     target=run_dash_server, args=(str(dashboard_path),)
-        # )
-        # dash_thread.daemon = True
-        # dash_thread.start()
+            # Save results using new save method
+            trainer.save_results(
+                linear_results,
+                layer_save_dir,
+                args.model_name,
+                args.layer,
+                "linear_probe",
+            )
 
-        # # Keep the main thread running
-        # while True:
-        #     time.sleep(1)
+            trainer.save_results(
+                tree_results,
+                layer_save_dir,
+                args.model_name,
+                args.layer,
+                "decision_tree",
+            )
 
-    except Exception as e:
-        logging.error(f"Error processing data: {e}")
-        raise e
+            logging.info("Processing and classification completed successfully")
+
+            # Prepare and save dashboard data
+            dashboard_data = prepare_dashboard_data(
+                linear_results=linear_results,
+                tree_results=tree_results,
+                args=args,
+                layer=layer,
+                tree_info=get_tree_info(tree_results["model"]),
+            )
+
+            dashboard_save_dir = get_save_directory(
+                args.dashboard_dir,
+                args.model_name,
+                args.dataset_name,
+                args.dataset_split,
+                layer,
+                args.width,
+            )
+            os.makedirs(dashboard_save_dir, exist_ok=True)
+
+            dashboard_path = Path(dashboard_save_dir) / "classifier_results.json"
+
+            with open(dashboard_path, "w") as f:
+                json.dump(dashboard_data, f, indent=2, cls=NumpyJSONEncoder)
+
+            logging.info(f"Dashboard data saved to {dashboard_path}")
+
+            # # Start the Dash server
+            # dash_thread = threading.Thread(
+            #     target=run_dash_server, args=(str(dashboard_path),)
+            # )
+            # dash_thread.daemon = True
+            # dash_thread.start()
+
+            # # Keep the main thread running
+            # while True:
+            #     time.sleep(1)
+
+        except Exception as e:
+            logging.error(f"Error processing data: {e}")
+            raise e
 
 
 if __name__ == "__main__":

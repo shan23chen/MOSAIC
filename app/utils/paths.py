@@ -14,4 +14,4 @@ def get_dashboard_dir(dashboard_dir: str = None) -> Path:
         return Path(dashboard_dir)
 
     # Default path relative to project root
-    return get_project_root() / "src" / "processed_features_llm" / "dashboards"
+    return get_project_root() / "src/dashboard_data"

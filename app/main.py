@@ -7,7 +7,7 @@ import dash_bootstrap_components as dbc
 
 from app.utils.paths import get_dashboard_dir
 from app.components.layout import create_layout, register_callbacks
-from app.utils.data_loader import load_available_models
+from app.utils.data_loader import load_available_options
 
 
 def create_app(dashboard_dir: str) -> Dash:
@@ -21,11 +21,11 @@ def create_app(dashboard_dir: str) -> Dash:
         suppress_callback_exceptions=True,  # Add this for pattern-matching callbacks
     )
 
-    # Load available models
-    models = load_available_models(dashboard_dir)
+    # Load available models and dataset options
+    options = load_available_options(dashboard_dir)
 
     # Create layout with loaded models
-    app.layout = create_layout(models)
+    app.layout = create_layout(options)
 
     # Register all callbacks
     register_callbacks(app)
@@ -43,7 +43,7 @@ def main():
     parser.add_argument(
         "--dashboard_dir",
         type=str,
-        default=None,
+        default="../dashboard_data/",
         help="Path to dashboard directory",
     )
     parser.add_argument(
