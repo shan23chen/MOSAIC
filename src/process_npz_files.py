@@ -14,6 +14,8 @@ from dash import dcc, html
 import webbrowser
 import threading
 import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from functools import partial
 
 
 from classifiers import ModelTrainer, TrainingConfig
@@ -164,9 +166,60 @@ def get_metadata_path(input_dir, model_name, layer):
     return metadata_path
 
 
-def process_data(metadata_df, sae, cfg_dict, last_token=False, top_n=5):
+def load_npz_file(npz_path, sample_id, label):
+    try:
+        npz_data = np.load(npz_path)
+        return {
+            "sample_id": sample_id,
+            "label": label,
+            "hidden_state": npz_data["hidden_state"],
+            "sae_acts": npz_data.get("sae_acts", None),
+        }
+    except Exception as e:
+        logging.error(f"Error processing file {npz_path}: {e}")
+        return None
+
+
+def process_batch(batch, sae, cfg_dict, last_token, top_n, device):
+    batch_df = pd.DataFrame(batch)
+
+    if "sae_acts" in batch_df.columns and batch_df["sae_acts"].iloc[0] is not None:
+        if batch_df["sae_acts"].iloc[0].shape[-1] != cfg_dict["d_sae"]:
+            raise ValueError("SAE activations shape mismatch")
+        if batch_df["sae_acts"].iloc[0].shape[0] == 1:
+            batch_df["sae_acts"] = batch_df["sae_acts"].apply(lambda x: x[0])
+    else:
+        if last_token:
+            last_tokens = [state[-1] for state in batch_df["hidden_state"]]
+            hidden_tensor = (
+                torch.tensor(np.stack(last_tokens)).to(torch.float32).to(device)
+            )
+            batch_df["sae_acts"] = sae.encode(hidden_tensor).cpu().numpy()
+        else:
+            batch_df["sae_acts"] = batch_df["hidden_state"].apply(
+                lambda x: sae.encode(torch.tensor(x).to(device).to(torch.float32))
+                .cpu()
+                .numpy()
+            )
+
+    batch_df["features"] = batch_df["sae_acts"].apply(
+        lambda x: optimized_top_n_to_one_hot(torch.tensor(x), top_n).cpu().numpy()
+    )
+
+    return batch_df
+
+
+def process_data(
+    metadata_df,
+    sae,
+    cfg_dict,
+    last_token=False,
+    top_n=5,
+    batch_size=1000,
+    num_workers=4,
+):
     """
-    Process data samples and generate features.
+    Process data samples and generate features efficiently.
 
     Args:
         metadata_df (pd.DataFrame): Metadata DataFrame
@@ -174,61 +227,39 @@ def process_data(metadata_df, sae, cfg_dict, last_token=False, top_n=5):
         cfg_dict (dict): SAE configuration
         last_token (bool): Whether to use only last token
         top_n (int): Number of top values for feature extraction
+        batch_size (int): Number of samples to process in each batch
+        num_workers (int): Number of worker processes
 
     Returns:
         pd.DataFrame: Processed DataFrame with features
     """
-    # Load NPZ files
-    data_samples = []
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     logging.info(f"Processing {len(metadata_df)} samples")
-    for idx in range(len(metadata_df)):
-        try:
-            npz_path = metadata_df.at[idx, "npz_file"]
-            npz_data = np.load(npz_path)
 
-            sample = {
-                "sample_id": metadata_df.at[idx, "sample_id"],
-                "label": metadata_df.at[idx, "label"],
-                "hidden_state": npz_data["hidden_state"],
-                "sae_acts": npz_data.get("sae_acts", None),
-            }
-            data_samples.append(sample)
-        except Exception as e:
-            logging.error(f"Error processing file {npz_path}: {e}")
-            continue
+    # Load NPZ files in parallel
+    with ProcessPoolExecutor(max_workers=num_workers) as executor:
+        load_func = partial(load_npz_file)
+        futures = [
+            executor.submit(load_func, row["npz_file"], row["sample_id"], row["label"])
+            for _, row in metadata_df.iterrows()
+        ]
 
-    loaded_data_df = pd.DataFrame(data_samples)
+        data_samples = []
+        for future in as_completed(futures):
+            result = future.result()
+            if result:
+                data_samples.append(result)
 
-    # Process features
-    if (
-        "sae_acts" in loaded_data_df.columns
-        and loaded_data_df["sae_acts"].iloc[0] is not None
-    ):
-        logging.info("Using pre-computed SAE activations")
-        if loaded_data_df["sae_acts"].iloc[0].shape[-1] != cfg_dict["d_sae"]:
-            raise ValueError(f"SAE activations shape mismatch")
-        if loaded_data_df["sae_acts"].iloc[0].shape[0] == 1:
-            loaded_data_df["sae_acts"] = loaded_data_df["sae_acts"].apply(
-                lambda x: x[0]
-            )
-    else:
-        logging.info("Computing SAE activations from hidden states")
-        if last_token:
-            last_tokens = [state[-1] for state in loaded_data_df["hidden_state"]]
-            hidden_tensor = (
-                torch.tensor(np.stack(last_tokens)).to(torch.float32).to(device)
-            )
-            loaded_data_df["sae_acts"] = [sae.encode(hidden_tensor)]
-        else:
-            loaded_data_df["sae_acts"] = loaded_data_df["hidden_state"].apply(
-                lambda x: sae.encode(torch.tensor(x).to(device).to(torch.float32))
-            )
+    # Process data in batches
+    processed_dfs = []
+    for i in range(0, len(data_samples), batch_size):
+        batch = data_samples[i : i + batch_size]
+        batch_df = process_batch(batch, sae, cfg_dict, last_token, top_n, device)
+        processed_dfs.append(batch_df)
 
-    # Generate features
-    logging.info(f"Generating features with top_{top_n} approach")
-    loaded_data_df["features"] = loaded_data_df["sae_acts"].apply(
-        lambda x: optimized_top_n_to_one_hot(torch.tensor(x), top_n).cpu().numpy()
-    )
+    # Combine all processed batches
+    loaded_data_df = pd.concat(processed_dfs, ignore_index=True)
 
     return loaded_data_df
 
