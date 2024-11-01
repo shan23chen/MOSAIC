@@ -51,7 +51,7 @@ def create_feature_importance_plot(data):
 def create_feature_importance_section(
     linear_features: Dict[str, Any], tree_features: Dict[str, Any]
 ) -> html.Div:
-    """Create an enhanced feature importance visualization section with interactive elements."""
+    """Create an enhanced feature importance visualization section using embedded feature descriptions."""
 
     def create_importance_plot(features, title, color_scheme):
         if not features.get("top_features"):
@@ -59,16 +59,35 @@ def create_feature_importance_section(
 
         feature_data = features["top_features"]
 
+        # Create hover text using embedded feature names
+        hover_text = []
+        for f in feature_data:
+            feature_name = f.get("name", f"Feature {f['index']}")
+            hover_text.append(
+                f"Feature {f['index']}<br>{feature_name}<br>Score: {abs(f['score']):.3f}"
+            )
+
         fig = go.Figure()
         fig.add_trace(
             go.Bar(
-                x=[str(f["index"]) for f in feature_data],
+                x=list(
+                    range(len(feature_data))
+                ),  # Use numeric indices for x-axis positions
                 y=[abs(f["score"]) for f in feature_data],
                 name=title,
                 marker_color=color_scheme,
-                hovertemplate="Feature %{x}<br>Score: %{y:.3f}<extra></extra>",
+                text=None,  # Remove text on bars
+                hoverinfo="text",
+                hovertext=hover_text,
+                hovertemplate="%{hovertext}<extra></extra>",
             )
         )
+
+        # Create x-axis labels with feature descriptions
+        descriptions = [f.get("name", f"Feature {f['index']}") for f in feature_data]
+        short_descriptions = [
+            d[:50] + "..." if len(d) > 50 else d for d in descriptions
+        ]
 
         fig.update_layout(
             title={
@@ -78,12 +97,19 @@ def create_feature_importance_section(
                 "xanchor": "center",
                 "yanchor": "top",
             },
-            xaxis_title="Feature Index",
+            xaxis=dict(
+                ticktext=short_descriptions,
+                tickvals=list(range(len(feature_data))),
+                tickangle=-45,
+            ),
             yaxis_title="Importance Score",
             template="plotly_white",
             hoverlabel=dict(bgcolor="white", font_size=14, font_family="Open Sans"),
             showlegend=False,
-            margin=dict(l=40, r=40, t=60, b=40),
+            margin=dict(
+                l=40, r=40, t=60, b=120
+            ),  # Increased bottom margin for rotated labels
+            height=500,  # Increased height to accommodate labels
         )
 
         return dcc.Graph(

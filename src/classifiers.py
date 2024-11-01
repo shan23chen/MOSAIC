@@ -27,21 +27,21 @@ class TrainingConfig:
 
     test_size: float = 0.2
     random_state: int = 42
-    cv_folds: int = 2
-    max_iter: int = 1000
+    cv_folds: int = 5
+    max_iter: int = 5000
 
     # Common parameters for both binary and multiclass
     probe_params = {
-        "C": [0.1, 1.0, 10.0],
+        "C": [0.001, 0.01, 0.1, 1.0],
         "penalty": ["l2"],
         "solver": ["lbfgs"],
     }
 
     # Decision tree specific
     tree_params = {
-        "max_depth": [3, 5, 7],
-        "min_samples_split": [2, 5],
-        "min_samples_leaf": [1, 2],
+        "max_depth": [3, 5, 7, 9],
+        "min_samples_split": [2, 5, 10],
+        "min_samples_leaf": [1, 2, 4],
     }
 
 
@@ -53,26 +53,26 @@ class ModelTrainer:
         self.scaler = StandardScaler()
         self.label_encoder = label_encoder
 
-    def prepare_hidden_states(
-        self, hidden_states: List[np.ndarray], max_length: int = None
-    ) -> np.ndarray:
-        """Prepare hidden states with padding and normalization."""
-        if max_length is None:
-            max_length = max(state.shape[0] for state in hidden_states)
+    # def prepare_hidden_states(
+    #     self, hidden_states: List[np.ndarray], max_length: int = None
+    # ) -> np.ndarray:
+    #     """Prepare hidden states with padding and normalization."""
+    #     if max_length is None:
+    #         max_length = max(state.shape[0] for state in hidden_states)
 
-        hidden_dim = hidden_states[0].shape[1]
-        n_samples = len(hidden_states)
-        padded_states = np.zeros((n_samples, max_length, hidden_dim))
+    #     hidden_dim = hidden_states[0].shape[1]
+    #     n_samples = len(hidden_states)
+    #     padded_states = np.zeros((n_samples, max_length, hidden_dim))
 
-        for i, state in enumerate(hidden_states):
-            seq_len = min(state.shape[0], max_length)
-            padded_states[i, :seq_len] = state[:seq_len]
+    #     for i, state in enumerate(hidden_states):
+    #         seq_len = min(state.shape[0], max_length)
+    #         padded_states[i, :seq_len] = state[:seq_len]
 
-        # Reshape and normalize
-        reshaped = padded_states.reshape(n_samples, -1)
-        normalized = self.scaler.fit_transform(reshaped)
+    #     # Reshape and normalize
+    #     reshaped = padded_states.reshape(n_samples, -1)
+    #     normalized = self.scaler.fit_transform(reshaped)
 
-        return normalized
+    #     return normalized
 
     def compute_metrics(
         self,
@@ -211,6 +211,7 @@ class ModelTrainer:
             "n_classes": n_classes,
             "classes": class_labels.tolist(),
             "label_encoder": self.label_encoder,
+            "hidden": hidden,
         }
 
         logging.info(f"Linear Probe Best Accuracy: {metrics['accuracy']:.4f}")
@@ -274,6 +275,7 @@ class ModelTrainer:
             "n_classes": n_classes,
             "classes": class_labels.tolist(),
             "label_encoder": self.label_encoder,
+            "hidden": hidden,
         }
 
         logging.info(f"Decision Tree Best Accuracy: {metrics['accuracy']:.4f}")
@@ -286,6 +288,7 @@ class ModelTrainer:
         model_name: str,
         layer: str,
         model_type: str,
+        hidden: bool = True,
     ):
         """Save model results and artifacts."""
         output_dir = Path(output_dir)
@@ -296,7 +299,7 @@ class ModelTrainer:
             "model": results["model"],
             "label_encoder": results["label_encoder"],
         }
-        model_path = output_dir / f"{model_type}_model.joblib"
+        model_path = output_dir / f"{model_type}_{hidden}_model.joblib"
         joblib.dump(model_artifacts, model_path)
 
         # Remove non-serializable objects for JSON
@@ -304,7 +307,7 @@ class ModelTrainer:
         results_copy.pop("model")
         results_copy.pop("label_encoder")
 
-        metrics_path = output_dir / f"{model_type}_metrics.json"
+        metrics_path = output_dir / f"{model_type}_{hidden}_metrics.json"
         with open(metrics_path, "w") as f:
             json.dump(results_copy, f, indent=2)
 

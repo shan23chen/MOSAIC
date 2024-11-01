@@ -23,7 +23,7 @@ from classifiers import ModelTrainer, TrainingConfig
 from dash_utils import NumpyJSONEncoder, prepare_dashboard_data, get_tree_info
 from models import get_sae_config
 
-from utils import get_save_directory, setup_logging
+from utils import get_save_directory, setup_logging, get_dashboard_directory
 
 # Configure logging
 logging.basicConfig(
@@ -376,14 +376,14 @@ def main():
 
             if args.model_type == "llm" and "gemma-2" in args.checkpoint.lower():
                 # Get SAE configuration based on model architecture
-                sae_location, feature_id = get_sae_config(
+                sae_location, feature_id, explanation_path = get_sae_config(
                     args.checkpoint, layer, args.sae_location, args.width
                 )
 
                 logging.info(
                     f"Loading SAE model from release {sae_location}, feature {feature_id}"
                 )
-                sae, cfg_dict, sparsity = SAE.from_pretrained(
+                sae, cfg_dict, _ = SAE.from_pretrained(
                     release=f"{sae_location}",
                     sae_id=feature_id,
                     device=device,
@@ -397,11 +397,12 @@ def main():
                 logging.info(
                     f"Loading SAE model from release {sae_release}, layer {layer}"
                 )
-                sae, cfg_dict, sparsity = SAE.from_pretrained(
+                sae, cfg_dict, _ = SAE.from_pretrained(
                     release=f"{sae_release}-res-jb",
                     sae_id=f"blocks.{layer}.hook_resid_post",
                     device=device,
                 )
+                # TODO: Add explanation path for non-LLM models
 
             processed_df = process_data(
                 metadata_df=metadata_df,
@@ -434,54 +435,102 @@ def main():
             features = load_features(layer_save_dir, args.model_type)
 
             # Train models with enhanced pipeline
-            linear_results = trainer.train_linear_probe(features, hidden=True)
-            linear_results2 = trainer.train_linear_probe(features, hidden=False)
-            tree_results = trainer.train_decision_tree(features)
+            hidden_linear_results = trainer.train_linear_probe(features, hidden=True)
+            hidden_tree_results = trainer.train_decision_tree(features, hidden=True)
+            sae_linear_results = trainer.train_linear_probe(features, hidden=False)
+            sae_tree_results = trainer.train_decision_tree(features, hidden=False)
 
             # Save results using new save method
             trainer.save_results(
-                linear_results,
+                hidden_linear_results,
                 layer_save_dir,
                 args.model_name,
                 args.layer,
                 "linear_probe",
+                hidden=True,
             )
 
             trainer.save_results(
-                tree_results,
+                hidden_tree_results,
                 layer_save_dir,
                 args.model_name,
                 args.layer,
                 "decision_tree",
+                hidden=True,
+            )
+
+            trainer.save_results(
+                sae_linear_results,
+                layer_save_dir,
+                args.model_name,
+                args.layer,
+                "linear_probe",
+                hidden=False,
+            )
+
+            trainer.save_results(
+                sae_tree_results,
+                layer_save_dir,
+                args.model_name,
+                args.layer,
+                "decision_tree",
+                hidden=False,
             )
 
             logging.info("Processing and classification completed successfully")
 
+            # Use the explanation path in your dashboard preparation
+            if explanation_path and explanation_path.exists():
+                with open(explanation_path) as f:
+                    feature_mapping = json.load(f)
+            else:
+                feature_mapping = {}  # Empty mapping if no explanations available
+
             # Prepare and save dashboard data
-            dashboard_data = prepare_dashboard_data(
-                linear_results=linear_results,
-                tree_results=tree_results,
+            hidden_dashboard_data = prepare_dashboard_data(
+                linear_results=hidden_linear_results,
+                tree_results=hidden_tree_results,
                 args=args,
                 layer=layer,
-                tree_info=get_tree_info(tree_results["model"]),
+                tree_info=get_tree_info(hidden_tree_results["model"]),
+                hidden=True,
+                feature_mapping=feature_mapping,
+                class_names=label_encoder.classes_,
+            )
+            sae_dashboard_data = prepare_dashboard_data(
+                linear_results=sae_linear_results,
+                tree_results=sae_tree_results,
+                args=args,
+                layer=layer,
+                tree_info=get_tree_info(sae_tree_results["model"]),
+                hidden=True,
+                feature_mapping=feature_mapping,
+                class_names=label_encoder.classes_,
             )
 
-            dashboard_save_dir = get_save_directory(
+            dashboard_save_dir = get_dashboard_directory(
                 args.dashboard_dir,
                 args.model_name,
                 args.dataset_name,
-                args.dataset_split,
                 layer,
                 args.width,
             )
             os.makedirs(dashboard_save_dir, exist_ok=True)
 
-            dashboard_path = Path(dashboard_save_dir) / "classifier_results.json"
+            hidden_dashboard_path = (
+                Path(dashboard_save_dir) / "hidden_classifier_results.json"
+            )
+            sae_dashboard_path = (
+                Path(dashboard_save_dir) / "sae_classifier_results.json"
+            )
 
-            with open(dashboard_path, "w") as f:
-                json.dump(dashboard_data, f, indent=2, cls=NumpyJSONEncoder)
+            with open(hidden_dashboard_path, "w") as f:
+                json.dump(hidden_dashboard_data, f, indent=2, cls=NumpyJSONEncoder)
 
-            logging.info(f"Dashboard data saved to {dashboard_path}")
+            with open(sae_dashboard_path, "w") as f:
+                json.dump(sae_dashboard_data, f, indent=2, cls=NumpyJSONEncoder)
+
+            logging.info(f"Dashboard data saved to {hidden_dashboard_path}")
 
             # # Start the Dash server
             # dash_thread = threading.Thread(
