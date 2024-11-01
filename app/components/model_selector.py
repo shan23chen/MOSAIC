@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 
 
 def create_model_selector(options: Dict[str, Any]) -> dbc.Card:
-    """Create selector components for model, dataset, split, and layer."""
+    """Create selector components for model, dataset, result type, and layer."""
     return dbc.Card(
         dbc.CardBody(
             [
@@ -43,9 +43,14 @@ def create_model_selector(options: Dict[str, Any]) -> dbc.Card:
                         ),
                         dbc.Col(
                             [
-                                html.Label("Split", className="fw-bold"),
+                                html.Label("Result Type", className="fw-bold"),
                                 dcc.Dropdown(
-                                    id="split-selector",
+                                    id="result-type-selector",
+                                    options=[
+                                        {"label": "Hidden", "value": "hidden"},
+                                        {"label": "SAE", "value": "sae"},
+                                    ],
+                                    value="hidden",
                                     clearable=False,
                                     className="mb-2",
                                 ),
