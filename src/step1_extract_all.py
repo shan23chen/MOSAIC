@@ -11,6 +11,8 @@ from get_hidden_states import get_hidden_states
 from sae_lens import SAE
 import gc
 
+from utils import get_save_directory
+
 # Debug configuration
 # try:
 #     import debugpy
@@ -41,12 +43,12 @@ def parse_args():
         required=True,
     )
     parser.add_argument(
-        "--sae_location", 
+        "--sae_location",
         type=str,
         default="res",
         choices=["res", "mlp", "att"],
-        help="SAE location e.g. mlp, res or att", 
-        required=True
+        help="SAE location e.g. mlp, res or att",
+        required=True,
     )
     parser.add_argument(
         "--layer",
@@ -140,32 +142,6 @@ def setup_logging(save_dir):
     logging.getLogger("").addHandler(console)
 
 
-def sanitize_path(path_str):
-    """Convert path string to a safe directory name by replacing / with _"""
-    return path_str.replace("/", "_").replace("\\", "_")
-
-
-def get_save_directory(base_dir, model_name, dataset_name, split, layer, width):
-    """Create and return a structured save directory path"""
-    # Sanitize model and dataset names
-    safe_model_name = sanitize_path(model_name)
-    safe_dataset_name = sanitize_path(dataset_name)
-    safe_split = sanitize_path(split)
-    safe_width = sanitize_path(width)
-
-    # Create path: base_dir/model_name/dataset_name/layer_{layer}
-    save_dir = os.path.join(
-        base_dir,
-        safe_model_name,
-        safe_dataset_name,
-        safe_split,
-        f"layer_{layer}",
-        safe_width,
-    )
-
-    return save_dir
-
-
 def main():
     args = parse_args()
 
@@ -182,6 +158,7 @@ def main():
             args.dataset_split,
             layer,
             args.width,
+            args.dataset_config_name,
         )
         os.makedirs(layer_save_dir, exist_ok=True)
 
@@ -208,7 +185,7 @@ def main():
                 max_batches=args.max_batches,
                 save_dir=layer_save_dir,  # Use layer-specific save directory
                 activation_only=bool(args.act_only == "True"),
-                all_tokens=bool(args.all_tokens == "True")
+                all_tokens=bool(args.all_tokens == "True"),
             )
 
             logging.info(f"Processing completed successfully for layer {layer}")
