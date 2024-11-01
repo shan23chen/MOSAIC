@@ -148,11 +148,15 @@ The scripts will generate:
 
 ## To-Do and Next Steps
 
-1. **Classifier Connection**: Connect extracted SAE features to an explainable classifier.
-2. **Classifier Visualizations**: Develop visualizations to interpret classifier outputs, enabling insight into feature importance and the classifier’s decision-making process.
-
-This work focuses on transforming hidden layers from VLMs/LLMs into sparse, interpretable features, allowing for a more explainable approach to model-based classification tasks. The step-by-step structure in `playground.ipynb` and batch functionality in `process_npz_files.py` ensure that this pipeline is both flexible and scalable.
-
+- [ ] update dashboard to show hidden vs sae feature results
+- [ ] update training settings 
+- [ ] add explanations for hover etc on sae
+- [ ] all positions
+- [ ] judger
+  - [ ] get output
+  - [ ] vllm
+  - [ ] judge output 
+  - [ ] store
 
 ## Citation
 TBD

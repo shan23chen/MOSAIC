@@ -19,7 +19,8 @@ def get_valid_token(model_name, model_type, hidden_states):
         elif model_name == "google/paligemma-3b-mix-224":
             return hidden_states[:, 0:256, :]
     elif model_type == "llm":
-        print(hidden_states.size())
+        # language model uses the last token
+        # print(hidden_states.size())
         return hidden_states[:, :-1, :]
     else:
         logging.exception(f"wrong model, not support")

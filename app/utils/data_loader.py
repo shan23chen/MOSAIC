@@ -1,42 +1,76 @@
 from pathlib import Path
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Literal
 import logging
 from collections import defaultdict
 
+ResultType = Literal["hidden", "sae"]
 
-def create_path_key(model: str, dataset: str, split: str, layer: str) -> str:
+
+def create_path_key(
+    model: str, dataset: str, layer: str, result_type: ResultType
+) -> str:
     """Create a serializable key for path lookup."""
-    return f"{model}||{dataset}||{split}||{layer}"
+    return f"{model}||{dataset}||{layer}||{result_type}"
 
 
 def parse_path_key(key: str) -> Dict[str, str]:
     """Parse a path key back into its components."""
-    model, dataset, split, layer = key.split("||")
-    return {"model": model, "dataset": dataset, "split": split, "layer": layer}
+    model, dataset, layer, result_type = key.split("||")
+    return {
+        "model": model,
+        "dataset": dataset,
+        "layer": layer,
+        "result_type": result_type,
+    }
+
+
+def get_result_filename(result_type: ResultType) -> str:
+    """Get the appropriate results filename based on type."""
+    if result_type == "hidden":
+        return "hidden_classifier_results.json"
+    elif result_type == "sae":
+        return "sae_classifier_results.json"
+    else:
+        raise ValueError(f"Invalid result type: {result_type}")
 
 
 def extract_path_components(file_path: Path) -> Dict[str, str]:
     """
     Extract components from a file path with structure like:
-    dashboard_data/google_gemma-2-2b/Anthropic_election_questions/test/layer_12/16k/classifier_results.json
+    dashboard_data/google_gemma-2-2b/Anthropic_election_questions/layer_12/16k/hidden_classifier_results.json
+    or
+    dashboard_data/google_gemma-2-2b/Anthropic_election_questions/layer_12/16k/sae_classifier_results.json
     """
     try:
         parts = list(file_path.parts)
-        results_idx = parts.index("classifier_results.json")
+        filename = parts[-1]
 
-        layer = parts[results_idx - 2].replace("layer_", "")
-        split = parts[results_idx - 3]
-        dataset = parts[results_idx - 4]
-        model = parts[results_idx - 5]
+        # Determine result type from filename
+        if filename == "hidden_classifier_results.json":
+            result_type = "hidden"
+        elif filename == "sae_classifier_results.json":
+            result_type = "sae"
+        else:
+            logging.warning(f"Unexpected results file: {filename}")
+            return None
+
+        layer = parts[-3].replace("layer_", "")
+        dataset = parts[-4]
+        model = parts[-5]
 
         logging.info(f"Extracted path components from {file_path}:")
         logging.info(f"  Model: {model}")
         logging.info(f"  Dataset: {dataset}")
-        logging.info(f"  Split: {split}")
         logging.info(f"  Layer: {layer}")
+        logging.info(f"  Result type: {result_type}")
 
-        return {"model": model, "dataset": dataset, "split": split, "layer": layer}
+        return {
+            "model": model,
+            "dataset": dataset,
+            "layer": layer,
+            "result_type": result_type,
+        }
     except Exception as e:
         logging.error(f"Failed to extract path components from {file_path}: {str(e)}")
         return None
@@ -50,12 +84,15 @@ def load_available_options(dashboard_dir: str) -> Dict[str, Any]:
     available_data = {
         "models": set(),
         "datasets": defaultdict(set),
-        "splits": defaultdict(lambda: defaultdict(set)),
         "layers": defaultdict(set),
+        "result_types": set(),
         "paths": {},
     }
 
-    result_files = list(dashboard_path.rglob("classifier_results.json"))
+    # Search for both hidden and sae result files
+    result_files = []
+    result_files.extend(dashboard_path.rglob("hidden_classifier_results.json"))
+    result_files.extend(dashboard_path.rglob("sae_classifier_results.json"))
     logging.info(f"Found {len(result_files)} result files")
 
     for file_path in result_files:
@@ -70,15 +107,15 @@ def load_available_options(dashboard_dir: str) -> Dict[str, Any]:
 
             model_name = components["model"]
             dataset_name = components["dataset"]
-            split = components["split"]
             layer = components["layer"]
+            result_type = components["result_type"]
 
             available_data["models"].add(model_name)
             available_data["datasets"][model_name].add(dataset_name)
-            available_data["splits"][model_name][dataset_name].add(split)
             available_data["layers"][model_name].add(layer)
+            available_data["result_types"].add(result_type)
 
-            path_key = create_path_key(model_name, dataset_name, split, layer)
+            path_key = create_path_key(model_name, dataset_name, layer, result_type)
             available_data["paths"][path_key] = str(file_path)
 
         except Exception as e:
@@ -94,17 +131,11 @@ def load_available_options(dashboard_dir: str) -> Dict[str, Any]:
             model: sorted(list(datasets))
             for model, datasets in available_data["datasets"].items()
         },
-        "splits": {
-            model: {
-                dataset: sorted(list(splits))
-                for dataset, splits in dataset_splits.items()
-            }
-            for model, dataset_splits in available_data["splits"].items()
-        },
         "layers": {
             model: sorted(list(layers), key=lambda x: int(x))
             for model, layers in available_data["layers"].items()
         },
+        "result_types": sorted(list(available_data["result_types"])),
         "paths": available_data["paths"],
     }
 
@@ -112,16 +143,20 @@ def load_available_options(dashboard_dir: str) -> Dict[str, Any]:
 
 
 def get_model_path(
-    options: Dict[str, Any], model: str, dataset: str, split: str, layer: str
+    options: Dict[str, Any],
+    model: str,
+    dataset: str,
+    layer: str,
+    result_type: ResultType,
 ) -> str:
     """Get the file path for a specific model configuration."""
-    path_key = create_path_key(model, dataset, split, layer)
+    path_key = create_path_key(model, dataset, layer, result_type)
     path = options["paths"].get(path_key)
 
     if path is None:
         logging.error(
             f"No path found for: Model={model}, Dataset={dataset}, "
-            f"Split={split}, Layer={layer}"
+            f"Layer={layer}, Result type={result_type}"
         )
         return None
 

@@ -70,8 +70,11 @@ def prepare_dashboard_data(
     args: argparse.Namespace,
     layer: str,
     tree_info: Dict[str, Any],
+    feature_mapping: Dict[Any, str],
+    class_names: List[str],
+    hidden: bool = False,
 ) -> Dict[str, Any]:
-    """Prepare structured dashboard data from model results."""
+    """Prepare structured dashboard data from model results with feature names."""
 
     dashboard_data = {
         "metadata": {
@@ -80,12 +83,17 @@ def prepare_dashboard_data(
                 "layer": layer,
                 "type": args.model_type,
             },
+            "dataset": {
+                "name": args.dataset_name,
+                "hidden": hidden,
+            },
             "training": {
                 "test_size": args.test_size,
                 "random_state": args.random_state,
                 "cv_folds": args.cv_folds if hasattr(args, "cv_folds") else 5,
             },
             "timestamp": datetime.now().isoformat(),
+            "class_names": class_names,
         },
         "models": {
             "linearProbe": {
@@ -129,11 +137,14 @@ def prepare_dashboard_data(
                     "importance_scores": linear_results["feature_importance"][
                         "coefficients"
                     ],
-                    "top_features": get_top_features(
-                        linear_results["feature_importance"]["coefficients"], n=10
+                    "top_features": map_feature_indices(
+                        get_top_features(
+                            linear_results["feature_importance"]["coefficients"], n=10
+                        ),
+                        feature_mapping,
                     ),
+                    "roc_analysis": linear_results["metrics"].get("roc_curve", {}),
                 },
-                "roc_analysis": linear_results["metrics"].get("roc_curve", {}),
             },
             "decisionTree": {
                 "performance": {
@@ -176,16 +187,23 @@ def prepare_dashboard_data(
                     "importance_scores": tree_results["feature_importance"][
                         "importance"
                     ],
-                    "top_features": get_top_features(
-                        tree_results["feature_importance"]["importance"], n=10
+                    "top_features": map_feature_indices(
+                        get_top_features(
+                            tree_results["feature_importance"]["importance"], n=10
+                        ),
+                        feature_mapping,
                     ),
+                    "roc_analysis": tree_results["metrics"].get("roc_curve", {}),
                 },
-                "roc_analysis": tree_results["metrics"].get("roc_curve", {}),
                 "tree_structure": {
                     "topology": {
                         "children_left": tree_info["children_left"],
                         "children_right": tree_info["children_right"],
                         "feature_indices": tree_info["feature"],
+                        "feature_names": [
+                            feature_mapping.get(str(idx), f"Feature {idx}")
+                            for idx in tree_info["feature"]
+                        ],
                     },
                     "node_data": {
                         "thresholds": tree_info["threshold"],
@@ -212,3 +230,31 @@ def get_tree_info(tree_model):
         "impurity": tree.impurity,  # Gini impurity at each node
         "value": tree.value,  # Class distribution at each node
     }
+
+
+def map_feature_indices(
+    feature_scores: List[Dict[str, Any]], feature_mapping: Dict[str, str]
+) -> List[Dict[str, Any]]:
+    """
+    Add feature names to the feature importance scores.
+
+    Args:
+        feature_scores: List of dictionaries containing feature indices and scores
+        feature_mapping: Dictionary mapping feature indices to descriptions
+
+    Returns:
+        List of dictionaries with added feature names
+    """
+    mapped_scores = []
+    for score in feature_scores:
+        index_str = str(score["index"])
+        mapped_scores.append(
+            {
+                "index": score["index"],
+                "score": score["score"],
+                "name": feature_mapping.get(
+                    index_str, f"Feature {index_str}"
+                ),  # Fallback if mapping not found
+            }
+        )
+    return mapped_scores
