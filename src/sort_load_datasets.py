@@ -312,7 +312,12 @@ def save_features(df, layer_dir, model_type):
     label_encoder = LabelEncoder()
     print(df.head())
     # # Convert hidden_states from pandas Series to numpy array
-    hidden_states_array = np.array([i[0] for i in df["hidden_state"]])
+    if df["hidden_state"].iloc[0].shape[0] == 1:
+        print('《==》last token already, reducing dimension now')
+        hidden_states_array = np.array([i[0] for i in df["hidden_state"]])
+    else:
+        print('《==》it is going in here - multiple tokens, taking last for residual_stream')
+        hidden_states_array = np.array([i[-1] for i in df["hidden_state"]])
 
     # Save features
     output_file = output_dir / f"{model_type}_features.npz"
