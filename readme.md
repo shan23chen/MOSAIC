@@ -45,12 +45,12 @@ This repository contains scripts for analyzing models using Sparse Autoencoders 
 
 1. Create the environment from the `environment.yml` file:
 
-   ```bash
+  ```bash
    mamba env create -f environment.yml
   ```
 
 2. Activate the environment:
-
+   
    ```bash
    mamba activate saefari
    ```
