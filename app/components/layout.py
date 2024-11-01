@@ -4,7 +4,12 @@ from typing import Dict, Any
 import logging
 import json
 from dash.dependencies import Input, Output, State
-from app.utils.data_loader import load_model_data, get_model_path, get_top_features
+from app.utils.data_loader import (
+    # load_model_data,
+    # get_model_path,
+    # get_top_features,
+    create_path_key,
+)
 from app.components.model_info import create_model_info_banner
 from app.components.model_selector import create_model_selector
 from app.components.performance import create_model_performance_section
@@ -67,25 +72,6 @@ def register_callbacks(app):
         )
 
     @app.callback(
-        Output("split-selector", "options"),
-        Output("split-selector", "value"),
-        Input("model-selector", "value"),
-        Input("dataset-selector", "value"),
-        State("dashboard-options", "data"),
-    )
-    def update_split_options(
-        selected_model: str, selected_dataset: str, options: Dict[str, Any]
-    ):
-        if not selected_model or not selected_dataset or not options:
-            return [], None
-
-        splits = options["splits"].get(selected_model, {}).get(selected_dataset, [])
-        logging.info(
-            f"Available splits for {selected_model}/{selected_dataset}: {splits}"
-        )
-        return [{"label": s, "value": s} for s in splits], splits[0] if splits else None
-
-    @app.callback(
         Output("layer-selector", "options"),
         Output("layer-selector", "value"),
         Input("model-selector", "value"),
@@ -110,18 +96,18 @@ def register_callbacks(app):
         [
             Input("model-selector", "value"),
             Input("dataset-selector", "value"),
-            Input("split-selector", "value"),
+            Input("result-type-selector", "value"),
             Input("layer-selector", "value"),
         ],
         State("dashboard-options", "data"),
     )
-    def update_dashboard_content(model, dataset, split, layer, options):
-        if not all([model, dataset, split, layer, options]):
+    def update_dashboard_content(model, dataset, result_type, layer, options):
+        if not all([model, dataset, result_type, layer, options]):
             return {}, html.Div("Please select all options"), html.Div()
 
         try:
             # Create the path key and get the file path
-            path_key = f"{model}||{dataset}||{split}||{layer}"
+            path_key = create_path_key(model, dataset, layer, result_type)
             file_path = options["paths"].get(path_key)
 
             if not file_path:
@@ -175,24 +161,15 @@ def create_dashboard_content(data: Dict[str, Any]) -> html.Div:
                 # Feature Importance Section
                 dbc.Card(
                     dbc.CardBody(
-                        create_feature_importance_section(
-                            {
-                                "importance_scores": linear_metrics.get(
-                                    "feature_analysis", {}
-                                ).get("importance_scores", []),
-                                "top_features": linear_metrics.get(
-                                    "feature_analysis", {}
-                                ).get("top_features", []),
-                            },
-                            {
-                                "importance_scores": tree_metrics.get(
-                                    "feature_analysis", {}
-                                ).get("importance_scores", []),
-                                "top_features": tree_metrics.get(
-                                    "feature_analysis", {}
-                                ).get("top_features", []),
-                            },
-                        )
+                        dbc.Card(
+                            dbc.CardBody(
+                                create_feature_importance_section(
+                                    data["models"]["linearProbe"]["feature_analysis"],
+                                    data["models"]["decisionTree"]["feature_analysis"],
+                                )
+                            ),
+                            className="mb-3 bg-white",
+                        ),
                     ),
                     className="mb-3 bg-white",
                 ),

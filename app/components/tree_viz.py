@@ -1,53 +1,99 @@
+import numpy as np
 import dash_bootstrap_components as dbc
 from dash import html
 from typing import List, Dict, Any
 from dash.dependencies import Input, Output, State, MATCH, ALL
 
 
-def create_class_distribution_badges(values: List[float], total: float) -> html.Div:
-    """Create class distribution badges with percentage values."""
-    percentages = [(v / total) * 100 for v in values]
+def create_class_distribution_badges(
+    values: List[float], total: float, class_names: List[str]
+) -> html.Div:
+    """
+    Create class distribution badges with percentage values and class names.
+
+    Args:
+        values: List of values for each class
+        total: Total sum of values
+        class_names: List of class names corresponding to indices. If None, uses C0, C1, etc.
+    """
+    if isinstance(values[0], (list, np.ndarray)):
+        values = values[0]  # Unnest if needed
+
+    total = sum(values)  # Recalculate total from unnested values
+    percentages = [(v / total) * 100 if total > 0 else 0 for v in values]
+
+    # Use provided class names or fallback to C0, C1, etc.
+    if class_names is None:
+        class_names = [f"C{i}" for i in range(len(values))]
+
+    # Ensure we have enough class names
+    while len(class_names) < len(values):
+        class_names.append(f"C{len(class_names)}")
 
     return html.Div(
         [
             dbc.Badge(
-                f"C{i}: {pct:.1f}%",
+                f"{class_names[i]}: {pct:.1f}%",
                 color=(
                     "danger"
-                    if i == 0  # red for class 0
-                    else "success" if i == 1 else "primary"  # green for class 1
-                ),  # blue for other classes
+                    if i == 0  # red for first class
+                    else (
+                        "success" if i == 1 else "primary"  # green for second class
+                    )  # blue for other classes
+                ),
                 className="mr-1 mb-1",
-                style={"opacity": "0.8"},
+                style={
+                    "opacity": "0.8",
+                    "fontSize": "0.85em",  # Slightly smaller font for longer class names
+                    "padding": "0.4em 0.6em",  # More padding for readability
+                },
             )
             for i, pct in enumerate(percentages)
             if pct > 0  # Only show classes that are present
         ],
-        className="d-flex flex-wrap",
+        className="d-flex flex-wrap gap-1",  # Added gap for better spacing
     )
 
 
 def create_tree_visualization(dashboard_data: Dict[str, Any]) -> html.Div:
-    """Create an improved tree visualization with dynamic collapsible nodes."""
+    """Create an improved tree visualization using embedded feature names."""
     tree_structure = dashboard_data["models"]["decisionTree"]["tree_structure"]
+    topology = tree_structure["topology"]
+    node_data = tree_structure["node_data"]
+
+    # Get class names from metadata if available
+    class_names = dashboard_data.get("metadata", {}).get("class_names", None)
 
     def create_node_component(node_id: int, depth: int = 0) -> html.Div:
-        """Create a single node component with improved styling."""
-        topology = tree_structure["topology"]
-        node_data = tree_structure["node_data"]
-
+        """Create a single node component with feature descriptions."""
         is_leaf = topology["children_left"][node_id] == -1
 
         # Get node information
-        samples = node_data["samples"][node_id]
-        gini = node_data["impurity"][node_id]
-        values = node_data["values"][node_id][0]
+        samples = node_data["samples"][node_id] if "samples" in node_data else 0
+        impurity = node_data["impurity"][node_id] if "impurity" in node_data else 0
+
+        # Handle nested values array
+        values = []
+        if "values" in node_data:
+            node_values = node_data["values"][node_id]
+            if isinstance(node_values, (list, np.ndarray)):
+                values = (
+                    node_values[0]
+                    if isinstance(node_values[0], (list, np.ndarray))
+                    else node_values
+                )
+            else:
+                values = [node_values]
 
         # Create node header with toggle button for non-leaf nodes
         header_content = []
         if not is_leaf:
             feature_idx = topology["feature_indices"][node_id]
             threshold = node_data["thresholds"][node_id]
+
+            # Get feature name from the embedded feature_names list
+            feature_name = topology["feature_names"][node_id]
+
             header_content = [
                 html.Div(
                     [
@@ -62,9 +108,33 @@ def create_tree_visualization(dashboard_data: Dict[str, Any]) -> html.Div:
                             className="btn btn-link p-0 mr-2",
                             n_clicks=0,
                         ),
-                        f"Feature {feature_idx} (≤ {threshold:.3f})",
+                        html.Div(
+                            [
+                                html.Div(
+                                    [
+                                        html.Span(
+                                            f"Feature {feature_idx}",
+                                            className="font-weight-bold",
+                                        ),
+                                        html.Span(
+                                            f" (≤ {threshold:.3f})",
+                                            className="text-muted ml-2",
+                                        ),
+                                    ],
+                                    className="d-flex align-items-center",
+                                ),
+                                html.Div(
+                                    feature_name,
+                                    className="text-muted small mt-1",
+                                    style={
+                                        "maxWidth": "400px",
+                                        "wordWrap": "break-word",
+                                    },
+                                ),
+                            ]
+                        ),
                     ],
-                    className="d-flex align-items-center",
+                    className="d-flex align-items-start",
                 )
             ]
         else:
@@ -76,14 +146,21 @@ def create_tree_visualization(dashboard_data: Dict[str, Any]) -> html.Div:
             ]
 
         # Add node information
+        node_info = []
+        if "samples" in node_data:
+            node_info.append(f"Samples: {samples}")
+        if "impurity" in node_data:
+            node_info.append(f"Gini: {impurity:.3f}")
+
         node_content = [
             html.Div(header_content, className="mb-1"),
-            html.Div(
-                f"Samples: {samples} | Gini: {gini:.3f}",
-                className="small text-muted mb-1",
-            ),
-            create_class_distribution_badges(values, sum(values)),
+            html.Div(" | ".join(node_info), className="small text-muted mb-1"),
         ]
+
+        if values:
+            node_content.append(
+                create_class_distribution_badges(values, sum(values), class_names)
+            )
 
         # Create children container for non-leaf nodes
         if not is_leaf:

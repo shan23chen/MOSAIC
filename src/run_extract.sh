@@ -1,6 +1,6 @@
 export CUDA_VISIBLE_DEVICES=0  # Use only GPU 0
 
-# python run.py --model_name Intel/llava-gemma-2b \
+# python step1_extract_all.py --model_name Intel/llava-gemma-2b \
 #     --model_type vlm \
 #     --sae_release gemma-2b \
 #     --layer 12 \
@@ -15,7 +15,7 @@ export CUDA_VISIBLE_DEVICES=0  # Use only GPU 0
 #     --max_batches 3
 
 ###################################### Anthropic ##############################################
-python run.py --model_name google/gemma-2-2b \
+python step1_extract_all.py --model_name google/gemma-2-2b \
     --model_type llm \
     --sae_location res \
     --layer 5,12,19 \
@@ -31,7 +31,7 @@ python run.py --model_name google/gemma-2-2b \
     # --max_batches 3 
 
     
-# python run.py --model_name google/gemma-2-9b \
+# python step1_extract_all.py --model_name google/gemma-2-9b \
 #     --model_type llm \
 #     --sae_location res \
 #     --layer 9,20,31 \
@@ -46,7 +46,7 @@ python run.py --model_name google/gemma-2-2b \
 #     --width 16k
  
 #     # --max_batches 3 
-# python run.py --model_name google/gemma-2-9b-it \
+# python step1_extract_all.py --model_name google/gemma-2-9b-it \
 #     --model_type llm \
 #     --sae_location res \
 #     --layer 9,20,31 \
@@ -62,7 +62,7 @@ python run.py --model_name google/gemma-2-2b \
 
 ###################################### TextDetox EN ##############################################
 
-python run.py --model_name google/gemma-2-2b \
+python step1_extract_all.py --model_name google/gemma-2-2b \
     --model_type llm \
     --sae_location res \
     --layer 5,12,19 \
@@ -77,7 +77,7 @@ python run.py --model_name google/gemma-2-2b \
     --width 16k
     # --max_batches 3 
     
-# python run.py --model_name google/gemma-2-9b \
+# python step1_extract_all.py --model_name google/gemma-2-9b \
 #     --model_type llm \
 #     --sae_location res \
 #     --layer 9,20,31 \
@@ -93,7 +93,7 @@ python run.py --model_name google/gemma-2-2b \
 #     # --max_batches 3 
  
 #     # --max_batches 3 
-# python run.py --model_name google/gemma-2-9b-it \
+# python step1_extract_all.py --model_name google/gemma-2-9b-it \
 #     --model_type llm \
 #     --sae_location res \
 #     --layer 9,20,31 \
@@ -109,7 +109,7 @@ python run.py --model_name google/gemma-2-2b \
 #     # --max_batches 3 
 
 ###################################### TextDetox ZH ##############################################
-python run.py --model_name google/gemma-2-2b \
+python step1_extract_all.py --model_name google/gemma-2-2b \
     --model_type llm \
     --sae_location res \
     --layer 5,12,19 \
@@ -124,7 +124,7 @@ python run.py --model_name google/gemma-2-2b \
     --width 16k
     # --max_batches 3
 
-# python run.py --model_name google/gemma-2-9b \
+# python step1_extract_all.py --model_name google/gemma-2-9b \
 #     --model_type llm \
 #     --sae_location res \
 #     --layer 9,20,31 \
@@ -139,7 +139,7 @@ python run.py --model_name google/gemma-2-2b \
 #     --width 16k
 #     # --max_batches 3
 
-# python run.py --model_name google/gemma-2-9b-it \
+# python step1_extract_all.py --model_name google/gemma-2-9b-it \
 #     --model_type llm \
 #     --sae_location res \
 #     --layer 9,20,31 \
@@ -155,7 +155,7 @@ python run.py --model_name google/gemma-2-2b \
 #     # --max_batches 3
 
 ###################################### AIM-Harvard ##############################################
-python run.py --model_name google/gemma-2-2b \
+python step1_extract_all.py --model_name google/gemma-2-2b \
     --model_type llm \
     --sae_location res \
     --layer 5,12,19 \
@@ -170,7 +170,7 @@ python run.py --model_name google/gemma-2-2b \
     --width 16k
     # --max_batches 3
 
-# python run.py --model_name google/gemma-2-9b \
+# python step1_extract_all.py --model_name google/gemma-2-9b \
 #     --model_type llm \
 #     --sae_location res \
 #     --layer 9,20,31 \
@@ -185,7 +185,7 @@ python run.py --model_name google/gemma-2-2b \
 #     --width 16k
 #     # --max_batches 3
 
-# python run.py --model_name google/gemma-2-9b-it \
+# python step1_extract_all.py --model_name google/gemma-2-9b-it \
 #     --model_type llm \
 #     --sae_location res \
 #     --layer 9,20,31 \
@@ -201,7 +201,7 @@ python run.py --model_name google/gemma-2-2b \
 #     # --max_batches 3
 
 ###################################### Jailbreak ##############################################
-# python run.py --model_name google/gemma-2-2b \
+# python step1_extract_all.py --model_name google/gemma-2-2b \
 #     --model_type llm \
 #     --sae_location res \
 #     --layer 5,12,19 \
@@ -216,7 +216,7 @@ python run.py --model_name google/gemma-2-2b \
 #     --width 16k
 #     # --max_batches 3
 
-# python run.py --model_name google/gemma-2-9b \
+# python step1_extract_all.py --model_name google/gemma-2-9b \
 #     --model_type llm \
 #     --sae_location res \
 #     --layer 9,20,31 \
@@ -231,7 +231,7 @@ python run.py --model_name google/gemma-2-2b \
 #     --width 16k
 #     # --max_batches 3
 
-# python run.py --model_name google/gemma-2-9b-it \
+# python step1_extract_all.py --model_name google/gemma-2-9b-it \
 #     --model_type llm \
 #     --sae_location res \
 #     --layer 9,20,31 \

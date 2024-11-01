@@ -6,3 +6,5 @@ src/processed_features*
 cache/
 .vscode/
 sae_llava.egg-info/
+*.log
+*.out

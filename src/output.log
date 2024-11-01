@@ -8,43 +8,80 @@ Gemma's activation function will be set to `gelu_pytorch_tanh`. Please, use
 `config.hidden_activation` if you want to override this behaviour.
 See https://github.com/huggingface/transformers/pull/29402 for more details.
 We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
-Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:03<00:03,  3.25s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.43s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.70s/it]
+
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]
+Loading checkpoint shards:  50%|█████     | 1/2 [00:03<00:03,  3.25s/it]
+Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.43s/it]
+Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.70s/it]
 Loading SAE model from release gemma-2b, layer 12
 Loading dataset: Anthropic/election_questions, config: None, split: test
-Processing Batches:   0%|          | 0/3 [00:00<?, ?it/s]Asking to truncate to max_length but no maximum length is provided and the model has no predefined maximum length. Default to no truncation.
+
+Processing Batches:   0%|          | 0/3 [00:00<?, ?it/s]Asking to truncate to max_length but no maximum length is provided and the model has no predefined maximum length. Default to no truncation.
 Starting from v4.46, the `logits` model output will have the same type as the model (except at train time, where it will always be FP32)
 torch.Size([32, 24, 2048])
 
-Processing Samples in Batch:   0%|          | 0/32 [00:00<?, ?it/s][A
-Processing Samples in Batch:   3%|▎         | 1/32 [00:00<00:12,  2.40it/s][A
-Processing Samples in Batch:  19%|█▉        | 6/32 [00:00<00:01, 13.94it/s][A
-Processing Samples in Batch:  34%|███▍      | 11/32 [00:00<00:00, 22.35it/s][A
-Processing Samples in Batch:  50%|█████     | 16/32 [00:00<00:00, 28.40it/s][A
-Processing Samples in Batch:  66%|██████▌   | 21/32 [00:00<00:00, 32.72it/s][A
-Processing Samples in Batch:  81%|████████▏ | 26/32 [00:00<00:00, 35.85it/s][A
-Processing Samples in Batch:  97%|█████████▋| 31/32 [00:01<00:00, 37.55it/s][AProcessing Samples in Batch: 100%|██████████| 32/32 [00:01<00:00, 28.02it/s]
-Processing Batches:  33%|███▎      | 1/3 [00:01<00:02,  1.31s/it]torch.Size([32, 23, 2048])
+111
 
-Processing Samples in Batch:   0%|          | 0/32 [00:00<?, ?it/s][A
-Processing Samples in Batch:   3%|▎         | 1/32 [00:00<00:13,  2.33it/s][A
-Processing Samples in Batch:  19%|█▉        | 6/32 [00:00<00:01, 13.79it/s][A
-Processing Samples in Batch:  34%|███▍      | 11/32 [00:00<00:00, 22.42it/s][A
-Processing Samples in Batch:  50%|█████     | 16/32 [00:00<00:00, 28.75it/s][A
-Processing Samples in Batch:  66%|██████▌   | 21/32 [00:00<00:00, 33.29it/s][A
-Processing Samples in Batch:  81%|████████▏ | 26/32 [00:00<00:00, 36.63it/s][A
-Processing Samples in Batch:  97%|█████████▋| 31/32 [00:01<00:00, 39.05it/s][AProcessing Samples in Batch: 100%|██████████| 32/32 [00:01<00:00, 28.44it/s]
-Processing Batches:  67%|██████▋   | 2/3 [00:02<00:01,  1.22s/it]torch.Size([32, 22, 2048])
+Processing Samples in Batch:   0%|          | 0/32 [00:00<?, ?it/s][A
 
-Processing Samples in Batch:   0%|          | 0/32 [00:00<?, ?it/s][A
-Processing Samples in Batch:   3%|▎         | 1/32 [00:00<00:12,  2.40it/s][A
-Processing Samples in Batch:  19%|█▉        | 6/32 [00:00<00:01, 14.22it/s][A
-Processing Samples in Batch:  34%|███▍      | 11/32 [00:00<00:00, 23.11it/s][A
-Processing Samples in Batch:  50%|█████     | 16/32 [00:00<00:00, 29.68it/s][A
-Processing Samples in Batch:  66%|██████▌   | 21/32 [00:00<00:00, 34.47it/s][A
-Processing Samples in Batch:  81%|████████▏ | 26/32 [00:00<00:00, 37.80it/s][A
-Processing Samples in Batch:  97%|█████████▋| 31/32 [00:01<00:00, 40.16it/s][AProcessing Samples in Batch: 100%|██████████| 32/32 [00:01<00:00, 29.32it/s]
-Processing Batches: 100%|██████████| 3/3 [00:03<00:00,  1.18s/it]Reached maximum number of batches (3). Stopping.
-Processing Batches: 100%|██████████| 3/3 [00:03<00:00,  1.20s/it]
+Processing Samples in Batch:   3%|▎         | 1/32 [00:00<00:12,  2.40it/s][A
+
+Processing Samples in Batch:  19%|█▉        | 6/32 [00:00<00:01, 13.94it/s][A
+
+Processing Samples in Batch:  34%|███▍      | 11/32 [00:00<00:00, 22.35it/s][A
+
+Processing Samples in Batch:  50%|█████     | 16/32 [00:00<00:00, 28.40it/s][A
+
+Processing Samples in Batch:  66%|██████▌   | 21/32 [00:00<00:00, 32.72it/s][A
+
+Processing Samples in Batch:  81%|████████▏ | 26/32 [00:00<00:00, 35.85it/s][A
+
+Processing Samples in Batch:  97%|█████████▋| 31/32 [00:01<00:00, 37.55it/s][A
+Processing Samples in Batch: 100%|██████████| 32/32 [00:01<00:00, 28.02it/s]
+
+Processing Batches:  33%|███▎      | 1/3 [00:01<00:02,  1.31s/it]torch.Size([32, 23, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/32 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   3%|▎         | 1/32 [00:00<00:13,  2.33it/s][A
+
+Processing Samples in Batch:  19%|█▉        | 6/32 [00:00<00:01, 13.79it/s][A
+
+Processing Samples in Batch:  34%|███▍      | 11/32 [00:00<00:00, 22.42it/s][A
+
+Processing Samples in Batch:  50%|█████     | 16/32 [00:00<00:00, 28.75it/s][A
+
+Processing Samples in Batch:  66%|██████▌   | 21/32 [00:00<00:00, 33.29it/s][A
+
+Processing Samples in Batch:  81%|████████▏ | 26/32 [00:00<00:00, 36.63it/s][A
+
+Processing Samples in Batch:  97%|█████████▋| 31/32 [00:01<00:00, 39.05it/s][A
+Processing Samples in Batch: 100%|██████████| 32/32 [00:01<00:00, 28.44it/s]
+
+Processing Batches:  67%|██████▋   | 2/3 [00:02<00:01,  1.22s/it]torch.Size([32, 22, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/32 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   3%|▎         | 1/32 [00:00<00:12,  2.40it/s][A
+
+Processing Samples in Batch:  19%|█▉        | 6/32 [00:00<00:01, 14.22it/s][A
+
+Processing Samples in Batch:  34%|███▍      | 11/32 [00:00<00:00, 23.11it/s][A
+
+Processing Samples in Batch:  50%|█████     | 16/32 [00:00<00:00, 29.68it/s][A
+
+Processing Samples in Batch:  66%|██████▌   | 21/32 [00:00<00:00, 34.47it/s][A
+
+Processing Samples in Batch:  81%|████████▏ | 26/32 [00:00<00:00, 37.80it/s][A
+
+Processing Samples in Batch:  97%|█████████▋| 31/32 [00:01<00:00, 40.16it/s][A
+Processing Samples in Batch: 100%|██████████| 32/32 [00:01<00:00, 29.32it/s]
+
+Processing Batches: 100%|██████████| 3/3 [00:03<00:00,  1.18s/it]Reached maximum number of batches (3). Stopping.
+
+Processing Batches: 100%|██████████| 3/3 [00:03<00:00,  1.20s/it]
 Processing completed.
 All processing completed successfully
 _models_and_tokenizer
@@ -56,7 +93,11 @@ ValueError: ID blocks.20.hook_resid_post not found in release gemma-2b-res-jb. V
 Gemma's activation function will be set to `gelu_pytorch_tanh`. Please, use
 `config.hidden_activation` if you want to override this behaviour.
 See https://github.com/huggingface/transformers/pull/29402 for more details.
-Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:03<00:03,  3.00s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.33s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.58s/it]
+
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]
+Loading checkpoint shards:  50%|█████     | 1/2 [00:03<00:03,  3.00s/it]
+Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.33s/it]
+Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.58s/it]
 ERROR:root:An error occurred during processing of layer 16
 Traceback (most recent call last):
   File "/home/jg1223/sae_llava/src/run.py", line 170, in main
@@ -79,7 +120,11 @@ Traceback (most recent call last):
   File "/home/jg1223/mambaforge/envs/saefari/lib/python3.10/site-packages/sae_lens/sae.py", line 615, in from_pretrained
     raise ValueError(
 ValueError: ID blocks.16.hook_resid_post not found in release gemma-2b-res-jb. Valid IDs are ['blocks.0.hook_resid_post', 'blocks.6.hook_resid_post', 'blocks.10.hook_resid_post', 'blocks.12.hook_resid_post', 'blocks.17.hook_resid_post'].
-Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:02<00:02,  3.00s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.33s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.58s/it]
+
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]
+Loading checkpoint shards:  50%|█████     | 1/2 [00:02<00:02,  3.00s/it]
+Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.33s/it]
+Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.58s/it]
 ERROR:root:An error occurred during processing of layer 20
 Traceback (most recent call last):
   File "/home/jg1223/sae_llava/src/run.py", line 170, in main
@@ -117,7 +162,11 @@ ValueError: ID blocks.20.hook_resid_post not found in release gemma-2b-res-jb. V
 Gemma's activation function will be set to `gelu_pytorch_tanh`. Please, use
 `config.hidden_activation` if you want to override this behaviour.
 See https://github.com/huggingface/transformers/pull/29402 for more details.
-Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:02<00:02,  2.91s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.30s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.54s/it]
+
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]
+Loading checkpoint shards:  50%|█████     | 1/2 [00:02<00:02,  2.91s/it]
+Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.30s/it]
+Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.54s/it]
 ERROR:root:An error occurred during processing of layer 16
 Traceback (most recent call last):
   File "/home/jg1223/sae_llava/src/run.py", line 170, in main
@@ -140,7 +189,11 @@ Traceback (most recent call last):
   File "/home/jg1223/mambaforge/envs/saefari/lib/python3.10/site-packages/sae_lens/sae.py", line 615, in from_pretrained
     raise ValueError(
 ValueError: ID blocks.16.hook_resid_post not found in release gemma-2b-res-jb. Valid IDs are ['blocks.0.hook_resid_post', 'blocks.6.hook_resid_post', 'blocks.10.hook_resid_post', 'blocks.12.hook_resid_post', 'blocks.17.hook_resid_post'].
-Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:03<00:03,  3.04s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.35s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.61s/it]
+
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]
+Loading checkpoint shards:  50%|█████     | 1/2 [00:03<00:03,  3.04s/it]
+Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.35s/it]
+Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.61s/it]
 ERROR:root:An error occurred during processing of layer 20
 Traceback (most recent call last):
   File "/home/jg1223/sae_llava/src/run.py", line 170, in main
@@ -178,178 +231,353 @@ ValueError: ID blocks.20.hook_resid_post not found in release gemma-2b-res-jb. V
 Gemma's activation function will be set to `gelu_pytorch_tanh`. Please, use
 `config.hidden_activation` if you want to override this behaviour.
 See https://github.com/huggingface/transformers/pull/29402 for more details.
-Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:02<00:02,  2.91s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.29s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.54s/it]
-Processing Batches:   0%|          | 0/78 [00:00<?, ?it/s]Asking to truncate to max_length but no maximum length is provided and the model has no predefined maximum length. Default to no truncation.
+
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]
+Loading checkpoint shards:  50%|█████     | 1/2 [00:02<00:02,  2.91s/it]
+Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.29s/it]
+Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.54s/it]
+
+Processing Batches:   0%|          | 0/78 [00:00<?, ?it/s]Asking to truncate to max_length but no maximum length is provided and the model has no predefined maximum length. Default to no truncation.
 Starting from v4.46, the `logits` model output will have the same type as the model (except at train time, where it will always be FP32)
 torch.Size([16, 21, 2048])
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:03,  4.97it/s][A
-Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 23.03it/s][A
-Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 32.08it/s][A
-Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 37.32it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 30.68it/s]
-Processing Batches:   1%|▏         | 1/78 [00:00<01:04,  1.19it/s]torch.Size([16, 20, 2048])
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.13it/s][A
-Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 23.91it/s][A
-Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 33.46it/s][A
-Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 39.06it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 32.00it/s]
-Processing Batches:   3%|▎         | 2/78 [00:01<00:56,  1.35it/s]torch.Size([16, 18, 2048])
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.29it/s][A
-Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 27.26it/s][A
-Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 37.63it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 34.02it/s]
-Processing Batches:   4%|▍         | 3/78 [00:02<00:52,  1.44it/s]torch.Size([16, 26, 2048])
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:03,  4.97it/s][A
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:04,  3.74it/s][A
-Processing Samples in Batch:  31%|███▏      | 5/16 [00:00<00:00, 16.34it/s][A
-Processing Samples in Batch:  56%|█████▋    | 9/16 [00:00<00:00, 24.17it/s][A
-Processing Samples in Batch:  88%|████████▊ | 14/16 [00:00<00:00, 30.07it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 24.87it/s]
-Processing Batches:   5%|▌         | 4/78 [00:02<00:55,  1.34it/s]torch.Size([16, 18, 2048])
+Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 23.03it/s][A
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.25it/s][A
-Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 27.23it/s][A
-Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 37.45it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 33.77it/s]
-Processing Batches:   6%|▋         | 5/78 [00:03<00:51,  1.41it/s]torch.Size([16, 19, 2048])
+Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 32.08it/s][A
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.28it/s][A
-Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 26.82it/s][A
-Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 36.66it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 33.19it/s]
-Processing Batches:   8%|▊         | 6/78 [00:04<00:49,  1.45it/s]torch.Size([16, 19, 2048])
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 37.32it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 30.68it/s]
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.44it/s][A
-Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 27.26it/s][A
-Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 37.11it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 33.65it/s]
-Processing Batches:   9%|▉         | 7/78 [00:04<00:47,  1.48it/s]torch.Size([16, 18, 2048])
+Processing Batches:   1%|▏         | 1/78 [00:00<01:04,  1.19it/s]torch.Size([16, 20, 2048])
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.34it/s][A
-Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 27.39it/s][A
-Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 37.56it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 34.03it/s]
-Processing Batches:  10%|█         | 8/78 [00:05<00:46,  1.50it/s]torch.Size([16, 19, 2048])
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.23it/s][A
-Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 26.66it/s][A
-Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 36.56it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 33.04it/s]
-Processing Batches:  12%|█▏        | 9/78 [00:06<00:45,  1.51it/s]torch.Size([16, 22, 2048])
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:03,  4.57it/s][A
-Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 21.70it/s][A
-Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 30.63it/s][A
-Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 35.90it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 29.23it/s]
-Processing Batches:  13%|█▎        | 10/78 [00:06<00:46,  1.47it/s]torch.Size([16, 23, 2048])
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.13it/s][A
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:03,  4.48it/s][A
-Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 21.11it/s][A
-Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 29.76it/s][A
-Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 34.84it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 28.42it/s]
-Processing Batches:  14%|█▍        | 11/78 [00:07<00:46,  1.43it/s]torch.Size([16, 21, 2048])
+Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 23.91it/s][A
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:03,  4.63it/s][A
-Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 22.17it/s][A
-Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 31.53it/s][A
-Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 37.03it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 30.04it/s]
-Processing Batches:  15%|█▌        | 12/78 [00:08<00:46,  1.42it/s]torch.Size([16, 23, 2048])
+Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 33.46it/s][A
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:03,  4.47it/s][A
-Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 21.01it/s][A
-Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 29.69it/s][A
-Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 34.78it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 28.35it/s]
-Processing Batches:  17%|█▋        | 13/78 [00:09<00:46,  1.40it/s]torch.Size([16, 18, 2048])
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 39.06it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 32.00it/s]
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.27it/s][A
-Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 27.29it/s][A
-Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 37.52it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 33.84it/s]
-Processing Batches:  18%|█▊        | 14/78 [00:09<00:44,  1.44it/s]torch.Size([16, 29, 2048])
+Processing Batches:   3%|▎         | 2/78 [00:01<00:56,  1.35it/s]torch.Size([16, 18, 2048])
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:04,  3.43it/s][A
-Processing Samples in Batch:  31%|███▏      | 5/16 [00:00<00:00, 14.95it/s][A
-Processing Samples in Batch:  56%|█████▋    | 9/16 [00:00<00:00, 22.10it/s][A
-Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 26.69it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 22.70it/s]
-Processing Batches:  19%|█▉        | 15/78 [00:10<00:47,  1.33it/s]torch.Size([16, 18, 2048])
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.27it/s][A
-Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 27.09it/s][A
-Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 37.52it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 33.79it/s]
-Processing Batches:  21%|██        | 16/78 [00:11<00:44,  1.39it/s]torch.Size([16, 18, 2048])
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.19it/s][A
-Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 27.10it/s][A
-Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 37.08it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 33.57it/s]
-Processing Batches:  22%|██▏       | 17/78 [00:11<00:42,  1.44it/s]torch.Size([16, 26, 2048])
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.29it/s][A
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:04,  3.71it/s][A
-Processing Samples in Batch:  31%|███▏      | 5/16 [00:00<00:00, 16.24it/s][A
-Processing Samples in Batch:  62%|██████▎   | 10/16 [00:00<00:00, 25.34it/s][A
-Processing Samples in Batch:  94%|█████████▍| 15/16 [00:00<00:00, 30.55it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 24.83it/s]
-Processing Batches:  23%|██▎       | 18/78 [00:12<00:43,  1.37it/s]torch.Size([16, 25, 2048])
+Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 27.26it/s][A
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:04,  3.70it/s][A
-Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 18.35it/s][A
-Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 26.60it/s][A
-Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 31.58it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 25.26it/s]
-Processing Batches:  24%|██▍       | 19/78 [00:13<00:44,  1.33it/s]torch.Size([16, 19, 2048])
+Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 37.63it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 34.02it/s]
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.09it/s][A
-Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 26.15it/s][A
-Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 36.07it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 32.56it/s]
-Processing Batches:  26%|██▌       | 20/78 [00:14<00:42,  1.38it/s]torch.Size([16, 15, 2048])
+Processing Batches:   4%|▍         | 3/78 [00:02<00:52,  1.44it/s]torch.Size([16, 26, 2048])
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  7.16it/s][A
-Processing Samples in Batch:  50%|█████     | 8/16 [00:00<00:00, 36.54it/s][A
-Processing Samples in Batch:  94%|█████████▍| 15/16 [00:00<00:00, 47.21it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 41.60it/s]
-Processing Batches:  27%|██▋       | 21/78 [00:14<00:38,  1.48it/s]torch.Size([16, 19, 2048])
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.10it/s][A
-Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 26.38it/s][A
-Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 36.40it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 32.88it/s]
-Processing Batches:  28%|██▊       | 22/78 [00:15<00:37,  1.49it/s]torch.Size([16, 21, 2048])
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:03,  4.54it/s][A
-Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 21.84it/s][A
-Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 29.94it/s][A
-Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 35.59it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 28.98it/s]
-Processing Batches:  29%|██▉       | 23/78 [00:16<00:37,  1.46it/s]torch.Size([16, 17, 2048])
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:04,  3.74it/s][A
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.31it/s][A
-Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 27.97it/s][A
-Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 38.89it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 34.96it/s]
-Processing Batches:  31%|███       | 24/78 [00:16<00:36,  1.50it/s]torch.Size([16, 20, 2048])
+Processing Samples in Batch:  31%|███▏      | 5/16 [00:00<00:00, 16.34it/s][A
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:03,  4.96it/s][A
-Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 23.40it/s][A
-Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 32.95it/s][A
-Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 38.73it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 31.54it/s]
-Processing Batches:  32%|███▏      | 25/78 [00:17<00:35,  1.49it/s]torch.Size([16, 21, 2048])
+Processing Samples in Batch:  56%|█████▋    | 9/16 [00:00<00:00, 24.17it/s][A
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
-Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:03,  4.58it/s][A
-Processing Samples in Batch:  19%|█▉        | 3/16 [00:00<00:01, 10.01it/s][A
-Processing Samples in Batch:  50%|█████     | 8/16 [00:00<00:00, 23.24it/s][A
-Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 30.83it/s][AProcessing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 25.92it/s]
-Processing Batches:  33%|███▎      | 26/78 [00:18<00:36,  1.41it/s]torch.Size([16, 23, 2048])
+Processing Samples in Batch:  88%|████████▊ | 14/16 [00:00<00:00, 30.07it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 24.87it/s]
 
-Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+Processing Batches:   5%|▌         | 4/78 [00:02<00:55,  1.34it/s]torch.Size([16, 18, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.25it/s][A
+
+Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 27.23it/s][A
+
+Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 37.45it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 33.77it/s]
+
+Processing Batches:   6%|▋         | 5/78 [00:03<00:51,  1.41it/s]torch.Size([16, 19, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.28it/s][A
+
+Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 26.82it/s][A
+
+Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 36.66it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 33.19it/s]
+
+Processing Batches:   8%|▊         | 6/78 [00:04<00:49,  1.45it/s]torch.Size([16, 19, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.44it/s][A
+
+Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 27.26it/s][A
+
+Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 37.11it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 33.65it/s]
+
+Processing Batches:   9%|▉         | 7/78 [00:04<00:47,  1.48it/s]torch.Size([16, 18, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.34it/s][A
+
+Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 27.39it/s][A
+
+Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 37.56it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 34.03it/s]
+
+Processing Batches:  10%|█         | 8/78 [00:05<00:46,  1.50it/s]torch.Size([16, 19, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.23it/s][A
+
+Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 26.66it/s][A
+
+Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 36.56it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 33.04it/s]
+
+Processing Batches:  12%|█▏        | 9/78 [00:06<00:45,  1.51it/s]torch.Size([16, 22, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:03,  4.57it/s][A
+
+Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 21.70it/s][A
+
+Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 30.63it/s][A
+
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 35.90it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 29.23it/s]
+
+Processing Batches:  13%|█▎        | 10/78 [00:06<00:46,  1.47it/s]torch.Size([16, 23, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:03,  4.48it/s][A
+
+Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 21.11it/s][A
+
+Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 29.76it/s][A
+
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 34.84it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 28.42it/s]
+
+Processing Batches:  14%|█▍        | 11/78 [00:07<00:46,  1.43it/s]torch.Size([16, 21, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:03,  4.63it/s][A
+
+Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 22.17it/s][A
+
+Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 31.53it/s][A
+
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 37.03it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 30.04it/s]
+
+Processing Batches:  15%|█▌        | 12/78 [00:08<00:46,  1.42it/s]torch.Size([16, 23, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:03,  4.47it/s][A
+
+Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 21.01it/s][A
+
+Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 29.69it/s][A
+
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 34.78it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 28.35it/s]
+
+Processing Batches:  17%|█▋        | 13/78 [00:09<00:46,  1.40it/s]torch.Size([16, 18, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.27it/s][A
+
+Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 27.29it/s][A
+
+Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 37.52it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 33.84it/s]
+
+Processing Batches:  18%|█▊        | 14/78 [00:09<00:44,  1.44it/s]torch.Size([16, 29, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:04,  3.43it/s][A
+
+Processing Samples in Batch:  31%|███▏      | 5/16 [00:00<00:00, 14.95it/s][A
+
+Processing Samples in Batch:  56%|█████▋    | 9/16 [00:00<00:00, 22.10it/s][A
+
+Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 26.69it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 22.70it/s]
+
+Processing Batches:  19%|█▉        | 15/78 [00:10<00:47,  1.33it/s]torch.Size([16, 18, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.27it/s][A
+
+Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 27.09it/s][A
+
+Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 37.52it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 33.79it/s]
+
+Processing Batches:  21%|██        | 16/78 [00:11<00:44,  1.39it/s]torch.Size([16, 18, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.19it/s][A
+
+Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 27.10it/s][A
+
+Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 37.08it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 33.57it/s]
+
+Processing Batches:  22%|██▏       | 17/78 [00:11<00:42,  1.44it/s]torch.Size([16, 26, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:04,  3.71it/s][A
+
+Processing Samples in Batch:  31%|███▏      | 5/16 [00:00<00:00, 16.24it/s][A
+
+Processing Samples in Batch:  62%|██████▎   | 10/16 [00:00<00:00, 25.34it/s][A
+
+Processing Samples in Batch:  94%|█████████▍| 15/16 [00:00<00:00, 30.55it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 24.83it/s]
+
+Processing Batches:  23%|██▎       | 18/78 [00:12<00:43,  1.37it/s]torch.Size([16, 25, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:04,  3.70it/s][A
+
+Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 18.35it/s][A
+
+Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 26.60it/s][A
+
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 31.58it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 25.26it/s]
+
+Processing Batches:  24%|██▍       | 19/78 [00:13<00:44,  1.33it/s]torch.Size([16, 19, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.09it/s][A
+
+Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 26.15it/s][A
+
+Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 36.07it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 32.56it/s]
+
+Processing Batches:  26%|██▌       | 20/78 [00:14<00:42,  1.38it/s]torch.Size([16, 15, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  7.16it/s][A
+
+Processing Samples in Batch:  50%|█████     | 8/16 [00:00<00:00, 36.54it/s][A
+
+Processing Samples in Batch:  94%|█████████▍| 15/16 [00:00<00:00, 47.21it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 41.60it/s]
+
+Processing Batches:  27%|██▋       | 21/78 [00:14<00:38,  1.48it/s]torch.Size([16, 19, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.10it/s][A
+
+Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 26.38it/s][A
+
+Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 36.40it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 32.88it/s]
+
+Processing Batches:  28%|██▊       | 22/78 [00:15<00:37,  1.49it/s]torch.Size([16, 21, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:03,  4.54it/s][A
+
+Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 21.84it/s][A
+
+Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 29.94it/s][A
+
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 35.59it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 28.98it/s]
+
+Processing Batches:  29%|██▉       | 23/78 [00:16<00:37,  1.46it/s]torch.Size([16, 17, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:02,  5.31it/s][A
+
+Processing Samples in Batch:  44%|████▍     | 7/16 [00:00<00:00, 27.97it/s][A
+
+Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 38.89it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 34.96it/s]
+
+Processing Batches:  31%|███       | 24/78 [00:16<00:36,  1.50it/s]torch.Size([16, 20, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:03,  4.96it/s][A
+
+Processing Samples in Batch:  38%|███▊      | 6/16 [00:00<00:00, 23.40it/s][A
+
+Processing Samples in Batch:  69%|██████▉   | 11/16 [00:00<00:00, 32.95it/s][A
+
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 38.73it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 31.54it/s]
+
+Processing Batches:  32%|███▏      | 25/78 [00:17<00:35,  1.49it/s]torch.Size([16, 21, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A
+
+Processing Samples in Batch:   6%|▋         | 1/16 [00:00<00:03,  4.58it/s][A
+
+Processing Samples in Batch:  19%|█▉        | 3/16 [00:00<00:01, 10.01it/s][A
+
+Processing Samples in Batch:  50%|█████     | 8/16 [00:00<00:00, 23.24it/s][A
+
+Processing Samples in Batch:  81%|████████▏ | 13/16 [00:00<00:00, 30.83it/s][A
+Processing Samples in Batch: 100%|██████████| 16/16 [00:00<00:00, 25.92it/s]
+
+Processing Batches:  33%|███▎      | 26/78 [00:18<00:36,  1.41it/s]torch.Size([16, 23, 2048])
+
+
+Processing Samples in Batch:   0%|          | 0/16 [00:00<?, ?it/s][A

@@ -1,5 +1,6 @@
-# models.py
+# models.py -> step1_extract_all.py
 
+import os
 import torch
 from transformers import (
     LlavaForConditionalGeneration,
@@ -10,7 +11,9 @@ from transformers import (
 )
 from sae_lens import SAE
 import logging
-from typing import Tuple, Literal, Union
+from typing import Tuple, Literal, Union, Optional
+from pathlib import Path
+from utils_neuronpedia import FeatureLookup
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -61,22 +64,26 @@ def load_models_and_tokenizer(
     model.to(device)
     if model_type == "llm" and "gemma-2" in checkpoint.lower():
         # Get SAE configuration based on model architecture
-        sae_location, feature_id = get_sae_config(checkpoint, layer, sae_location, width)
+        sae_location, feature_id, _ = get_sae_config(
+            checkpoint, layer, sae_location, width
+        )
 
-        logging.info(f"Loading SAE model from release {sae_location}, feature {feature_id}")
-        sae, cfg_dict, sparsity = SAE.from_pretrained(
+        logging.info(
+            f"Loading SAE model from release {sae_location}, feature {feature_id}"
+        )
+        sae, _, _ = SAE.from_pretrained(
             release=f"{sae_location}",
             sae_id=feature_id,
             device=device,
         )
 
     else:
-        if 'it' in checkpoint.lower():
-            sae_release = 'gemma-2b-it'
+        if "it" in checkpoint.lower():
+            sae_release = "gemma-2b-it"
         else:
-            sae_release = 'gemma-2b'
+            sae_release = "gemma-2b"
         logging.info(f"Loading SAE model from release {sae_release}, layer {layer}")
-        sae, cfg_dict, sparsity = SAE.from_pretrained(
+        sae, _, _ = SAE.from_pretrained(
             release=f"{sae_release}-res-jb",
             sae_id=f"blocks.{layer}.hook_resid_post",
             device=device,
@@ -90,9 +97,9 @@ def load_models_and_tokenizer(
 
 def get_sae_config(
     model_name: str, layer: int, sae_location: str, width: str
-) -> Tuple[str, str]:
+) -> Tuple[str, str, Optional[Path]]:
     """
-    Generate SAE release name and feature ID based on model architecture.
+    Generate SAE release name, feature ID, and path to feature explanations.
 
     Args:
         model_name: Name/path of the model checkpoint
@@ -101,7 +108,8 @@ def get_sae_config(
         width: Width parameter for the SAE configuration (e.g. 16k)
 
     Returns:
-        Tuple of (sae_location, feature_id)
+        Tuple of (sae_location, feature_id, explanation_file_path)
+        explanation_file_path will be None if explanations couldn't be cached
     """
     model_name = model_name.lower()
 
@@ -110,6 +118,7 @@ def get_sae_config(
         "google/gemma-2-2b": {
             "release_template": "gemma-scope-2b-pt-{}-canonical",
             "id_template": "layer_{}/{}/canonical",
+            # TODO @jack this is still wrong on the second width
             "supported_widths": ["width_16k", "width_524k", "width_1m"],
         },
         "google/gemma-2-9b": {
@@ -146,7 +155,55 @@ def get_sae_config(
     sae_location = config["release_template"].format(feature_type)
     feature_id = config["id_template"].format(layer, width)
 
-    return sae_location, feature_id
+    # Initialize explanation file path as None
+    explanation_file_path = None
+
+    try:
+        # Initialize feature lookup
+        feature_lookup = FeatureLookup(
+            config_path="resource/pretrained_saes.yaml", cache_dir="./explanation_cache"
+        )
+
+        # Get Neuronpedia ID from config
+        neuronpedia_id = feature_lookup.get_neuronpedia_id(sae_location, feature_id)
+
+        if neuronpedia_id:
+            # Extract model name without prefix for cache
+            model_short_name = model_name.split("/")[-1]
+
+            # Get the cache path before fetching
+            explanation_file_path = feature_lookup._get_cache_path(
+                model=model_short_name,
+                layer=str(layer),
+                width=width,
+                sae_location=sae_location,
+            )
+
+            # Fetch and cache explanations
+            success = feature_lookup.fetch_and_save_explanations(
+                model=model_short_name,
+                layer=str(layer),
+                width=width,
+                sae_location=sae_location,
+                neuronpedia_id=neuronpedia_id,
+                api_key=os.getenv("NEURONPEDIA_API_KEY"),
+            )
+
+            if not success:
+                explanation_file_path = None
+                logging.warning(
+                    f"Failed to cache explanations for {model_name} layer {layer}"
+                )
+        else:
+            logging.warning(f"No Neuronpedia ID found for {sae_location} {feature_id}")
+
+    except Exception as e:
+        logging.error(f"Error fetching explanations: {str(e)}")
+        explanation_file_path = None
+        # Continue without explanations - don't block SAE config generation
+        pass
+
+    return sae_location, feature_id, explanation_file_path
 
 
 def prepare_inputs(images, texts, tokenizer_or_processor, device, model_type):
@@ -187,6 +244,7 @@ def prepare_image_inputs(images, texts, processor, device):
 
 
 def extract_hidden_states(model, inputs, layer, model_type):
+    # TODO @ shan: make sure load and process function hook to different position nex week
     if model_type == "llm":
         outputs = model(**inputs, output_hidden_states=True, return_dict=True)
         hidden_states = outputs.hidden_states

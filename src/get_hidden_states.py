@@ -1,4 +1,4 @@
-# get_hidden_states.py
+# get_hidden_states.py -> step1_extract_all.py
 
 import torch
 from datasets import load_dataset
@@ -10,18 +10,21 @@ import math
 import gc
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
+# retrieve_all_tokens = True
 
-
-def get_valid_token(model_name, model_type, hidden_states):
+def get_valid_token(model_name, model_type, hidden_states, all_tokens):
     if model_type == "vlm":
         if model_name == "Intel/llava-gemma-2b":
             return hidden_states[:, 4:580, :]
         elif model_name == "google/paligemma-3b-mix-224":
             return hidden_states[:, 0:256, :]
-    elif model_type == "llm":
-        return hidden_states[:, -1:, :]
+    elif model_type == "llm" and all_tokens:
+        return hidden_states
     else:
-        logging.exception(f"wrong model, not support")
+        # get only the last token's specific layer's hidden states
+        # default setting for causal language models
+        return hidden_states[:, -1:, :]
+
 
 
 def get_hidden_states(
@@ -40,6 +43,7 @@ def get_hidden_states(
     max_batches=None,
     save_dir="./npz_files",  # Add save_dir to pass to retrieve_sae_features
     activation_only=True,
+    all_tokens=False,
 ):
     logging.info(f"Loading model and tokenizer/processor for {model_name}")
     # Load the model and tokenizer/processor
@@ -109,10 +113,10 @@ def get_hidden_states(
                 # Extract hidden states for the current batch
                 hidden_states = extract_hidden_states(model, inputs, layer, model_type)
                 # print(type(hidden_states), hidden_states.size())
-                hidden_states = get_valid_token(model_name, model_type, hidden_states)
+                hidden_states = get_valid_token(model_name, model_type, hidden_states, all_tokens)
                 # print(type(hidden_states), hidden_states.size())
-                labels = batch.get(label_field)
-                ids = batch.get("id")  # Get the unique IDs
+                labels = batch.get(label_field) # get label
+                ids = batch.get("id")  # Get the unique ID/index for tracking 
 
                 # Process and save the hidden states and labels immediately
                 retrieve_sae_features(

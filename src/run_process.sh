@@ -1,7 +1,7 @@
 export CUDA_VISIBLE_DEVICES=0  # Use only GPU 0
 
 
-python process_npz_files.py \
+python step2_dataset_classify.py \
     --input-dir ./output_llm_both \
     --dashboard-dir ../dashboard_data \
     --model-name google/gemma-2-2b \
@@ -19,7 +19,7 @@ python process_npz_files.py \
     --save-plots
 
 
-python process_npz_files.py \
+python step2_dataset_classify.py \
     --input-dir ./output_llm_both \
     --dashboard-dir ../dashboard_data \
     --model-name google/gemma-2-2b \
@@ -35,7 +35,7 @@ python process_npz_files.py \
     --tree-depth 5 \
     --save-plots
 
-python process_npz_files.py \
+python step2_dataset_classify.py \
     --input-dir ./output_llm_both \
     --dashboard-dir ../dashboard_data \
     --model-name google/gemma-2-2b \
