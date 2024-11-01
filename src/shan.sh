@@ -46,6 +46,7 @@ python process_npz_files.py \
     --input-dir ./output_llm_both \
     --dashboard-dir ../dashboard_data \
     --model-name google/gemma-2-2b \
+    --checkpoint google/gemma-2-2b \
     --dataset-name Anthropic/election_questions \
     --model-type llm \
     --dataset-split test \

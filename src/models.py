@@ -64,7 +64,7 @@ def load_models_and_tokenizer(
     model.to(device)
     if model_type == "llm" and "gemma-2" in checkpoint.lower():
         # Get SAE configuration based on model architecture
-        sae_location, feature_id = get_sae_config(
+        sae_location, feature_id, _ = get_sae_config(
             checkpoint, layer, sae_location, width
         )
 
