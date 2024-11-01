@@ -13,6 +13,20 @@ export CUDA_VISIBLE_DEVICES=1  # Use only GPU 0
 #     --sae_location res \
 #     --width 16k 
 
+# python run.py --model_name google/gemma-2-2b \
+#     --model_type llm \
+#     --sae_location res \
+#     --layer 12 \
+#     --save_dir ./output_llm_both/ \
+#     --dataset_name Anthropic/election_questions \
+#     --dataset_split test \
+#     --text_field question \
+#     --batch_size 16 \
+#     --image_field NA \
+#     --label_field label \
+#     --act_only False \
+#     --width 16k
+
 # python process_npz_files.py \
 #     --input-dir ./output_vlm_both_new \
 #     --dashboard-dir ../dashboard_data \
@@ -28,6 +42,22 @@ export CUDA_VISIBLE_DEVICES=1  # Use only GPU 0
 #     --tree-depth 5 \
 #     --save-plots
 
+python process_npz_files.py \
+    --input-dir ./output_llm_both \
+    --dashboard-dir ../dashboard_data \
+    --model-name google/gemma-2-2b \
+    --dataset-name Anthropic/election_questions \
+    --model-type llm \
+    --dataset-split test \
+    --model-type llm \
+    --layer 12 \
+    --sae_location res \
+    --width 16k \
+    --top-n 5 \
+    --test-size 0.2 \
+    --tree-depth 5 \
+    --save-plots
+
 # python run.py --model_name google/gemma-2-2b \
 #     --model_type llm \
 #     --sae_location res \
@@ -42,21 +72,21 @@ export CUDA_VISIBLE_DEVICES=1  # Use only GPU 0
 #     --act_only False \
 #     --width 16k
 
-python process_npz_files.py \
-    --input-dir ./output_llm_both \
-    --dashboard-dir ../dashboard_data \
-    --model-name google/gemma-2-2b \
-    --dataset-name Anthropic/election_questions \
-    --model-type llm \
-    --dataset-split test \
-    --model-type llm \
-    --layer 5 \
-    --sae_location res \
-    --width 16k \
-    --top-n 5 \
-    --test-size 0.2 \
-    --tree-depth 5 \
-    --save-plots
+# python process_npz_files.py \
+#     --input-dir ./output_llm_both \
+#     --dashboard-dir ../dashboard_data \
+#     --model-name google/gemma-2-2b \
+#     --dataset-name Anthropic/election_questions \
+#     --model-type llm \
+#     --dataset-split test \
+#     --model-type llm \
+#     --layer 5 \
+#     --sae_location res \
+#     --width 16k \
+#     --top-n 5 \
+#     --test-size 0.2 \
+#     --tree-depth 5 \
+#     --save-plots
 
 # python run.py --model_name google/gemma-2b-it \
 #     --model_type llm \

@@ -264,9 +264,12 @@ def optimized_top_n_to_one_hot(array, top_n, progress_dict=None, binary=False):
         return None
     
     token_length, dim_size = array.shape
-    
+
+    # taking top_n activated functions 
     top_n_indices = np.argpartition(-array, top_n, axis=1)[:, :top_n]
     sparse_array = np.zeros((token_length, dim_size), dtype=np.uint8)
+
+    # making [0.1, 0.5, 0.3] to [0, 1, 0] if top_n_indices = [1]
     row_indices = np.arange(token_length)[:, np.newaxis]
     sparse_array[row_indices, top_n_indices] = 1
     
@@ -278,7 +281,11 @@ def optimized_top_n_to_one_hot(array, top_n, progress_dict=None, binary=False):
         progress_dict['processed_items'] += 1
     
     if binary:
+        # for multiple tokens:
+        # [0, 5, 0, 3, 0] -> [0, 1, 0, 1, 0]
         return result.astype(np.bool_)
+    # uint8 0~255 2^7
+    # uint16 0~65535 2^15
     return result.astype(np.uint16)
 
 def process_data(metadata_df, sae, cfg_dict, last_token=False, top_n=5, batch_size=1000, num_workers=10):
