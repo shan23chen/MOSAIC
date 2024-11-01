@@ -57,21 +57,22 @@ python step1_extract_all.py --model_name google/gemma-2-2b \
 #     --act_only False \
 #     --width 16k
 
-# python step2_dataset_classify.py \
-#     --input-dir ./output_llm_both \
-#     --dashboard-dir ../dashboard_data \
-#     --model-name google/gemma-2-2b \
-#     --dataset-name Anthropic/election_questions \
-#     --model-type llm \
-#     --dataset-split test \
-#     --model-type llm \
-#     --layer 5 \
-#     --sae_location res \
-#     --width 16k \
-#     --top-n 5 \
-#     --test-size 0.2 \
-#     --tree-depth 5 \
-#     --save-plots
+python step2_dataset_classify.py \
+    --input-dir ./output_llm_both1 \
+    --dashboard-dir ../dashboard_data \
+    --model-name google/gemma-2-2b \
+    --dataset-name Anthropic/election_questions \
+    --model-type llm \
+    --dataset-split test \
+    --model-type llm \
+    --layer 12 \
+    --sae_location res \
+    --width 16k \
+    --top-n 5 \
+    --test-size 0.2 \
+    --tree-depth 5 \
+    --save-plots
+
 # python step2_dataset_classify.py \
 #     --input-dir ./output_llm_both \
 #     --dashboard-dir ../dashboard_data \
