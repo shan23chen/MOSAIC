@@ -53,6 +53,30 @@ def load_npz_file(npz_path, sample_id, label, progress_dict=None):
         logging.error(f"Error processing file {npz_path}: {e}")
         return None
 
+def cast_sae_acts_dim_check(sae_acts_list):
+    """
+    Attempts to cast the 'sae_acts' column of the DataFrame to a NumPy array.
+    
+    Args:
+        sae_acts_list (list): A list of 'sae_acts' values from the DataFrame.
+        
+    Returns:
+        bool: True if casting is successful, False if a ValueError due to inhomogeneous shapes occurs.
+    """
+    try:
+        sae_acts_array = np.array(sae_acts_list)
+        
+        return True
+    except ValueError as e:
+        error_message = str(e)
+        target_error = (
+            "The requested array has an inhomogeneous shape"
+        )
+        if target_error in error_message:
+            return False
+        else:
+            # Re-raise the exception if it's a different ValueError
+            raise
 
 def process_batch(batch, sae, cfg_dict, last_token, top_n, device, progress_dict=None):
     """Process batch with progress tracking."""
@@ -128,9 +152,20 @@ def process_batch(batch, sae, cfg_dict, last_token, top_n, device, progress_dict
             progress_dict["processing_status"] = "Generating features"
             progress_dict["processed_items"] = 0
 
-        batch_df["features"] = batch_df["sae_acts"].apply(
-            lambda x: optimized_top_n_to_one_hot(x, top_n, progress_dict)
-        )
+        ## TODO matrixify this
+        ## batch_df["sae_acts"] should be N x 1 x 2028 or N x 586 x 2048 or N x different x 2048
+        if cast_sae_acts_dim_check(batch_df["sae_acts"].to_list()):
+            batch_df["features"] = [
+                i for i in batch_optimized_top_n_to_one_hot(
+                np.array(batch_df["sae_acts"].to_list()), top_n
+                )
+            ]
+            
+        else:
+            print("=+++++ your sae_acts are different token length, going to loop through +++++++=")    
+            batch_df["features"] = batch_df["sae_acts"].apply(
+                lambda x: optimized_top_n_to_one_hot(x, top_n, progress_dict)
+            )
 
         batch_df.drop("sae_acts", axis=1, inplace=True)
 
@@ -175,6 +210,54 @@ def optimized_top_n_to_one_hot(array, top_n, progress_dict=None, binary=False, i
     else:
         # uint16 0~65535 2^15
         return result.astype(np.uint16)
+
+
+# Batch version of the function
+def batch_optimized_top_n_to_one_hot(array, top_n, progress_dict=None, binary=False, int8=False):
+    """
+    Memory-efficient top-n to one-hot conversion over a batch of arrays with progress tracking.
+    """
+    if array is None:
+        return None
+
+    # Get the dimensions of the input array
+    batch_size, token_length, dim_size = array.shape
+
+    # Step 1: Find indices of top_n activations per token for each sample in the batch
+    top_n_indices = np.argpartition(-array, top_n, axis=2)[:, :, :top_n]
+
+    # Step 2: Create a sparse representation where top_n indices are set to 1
+    sparse_array = np.zeros((batch_size, token_length, dim_size), dtype=np.uint8)
+
+    # Prepare indices for batch and token dimensions to use in advanced indexing
+    batch_indices = np.arange(batch_size)[:, np.newaxis, np.newaxis]
+    token_indices = np.arange(token_length)[np.newaxis, :, np.newaxis]
+
+    # Set the positions of top_n activations to 1 in the sparse array
+    sparse_array[batch_indices, token_indices, top_n_indices] = 1
+
+    # Step 3: Sum over the token dimension to get activation counts per dimension for each sample
+    result = np.sum(sparse_array, axis=1)
+
+    # Clean up variables to free memory
+    del sparse_array, top_n_indices, batch_indices, token_indices
+
+    # Step 4: Update progress if a progress dictionary is provided
+    if progress_dict is not None:
+        progress_dict["processed_items"] += batch_size
+
+    # Step 5: Post-process the result based on the flags provided
+    if binary:
+        # Convert counts to binary values (0 or 1)
+        result = result.astype(bool)
+    if int8:
+        # Cap counts at 255 and convert to int8 to save memory
+        result = np.clip(result, 0, 255).astype(np.int8)
+    else:
+        # Default to uint16 to handle counts up to 65535
+        result = result.astype(np.uint16)
+
+    return result
 
 
 def process_data(
