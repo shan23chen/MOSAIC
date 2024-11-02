@@ -7,7 +7,12 @@ import logging
 import argparse
 import json
 import os
-from sort_load_datasets import get_metadata_path, process_data, save_features, load_features
+from sort_load_datasets import (
+    get_metadata_path,
+    process_data,
+    save_features,
+    load_features,
+)
 from classifiers import ModelTrainer, TrainingConfig
 from utils_dash import NumpyJSONEncoder, prepare_dashboard_data, get_tree_info
 from models import get_sae_config
@@ -74,6 +79,12 @@ def parse_arguments():
         type=str,
         help="Dataset name (e.g., OncQA, MedQA, etc.)",
         required=True,
+    )
+    parser.add_argument(
+        "--dataset_config_name",
+        type=str,
+        help="Dataset config name (e.g., subject)",
+        default=None,
     )
     parser.add_argument(
         "--dataset-split",
@@ -145,6 +156,7 @@ def main():
             args.dataset_split,
             layer,
             args.width,
+            args.dataset_config_name,
         )
         os.makedirs(layer_save_dir, exist_ok=True)
 
