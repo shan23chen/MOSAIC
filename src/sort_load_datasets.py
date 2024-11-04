@@ -1,6 +1,7 @@
 import torch
 import re
 import gc
+import glob
 from pathlib import Path
 import logging
 import warnings
@@ -10,9 +11,11 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from sklearn.preprocessing import LabelEncoder
 from tqdm import tqdm
 
+
 def get_metadata_path(input_dir, model_name, layer):
     """
     Construct metadata file path based on run.py output structure.
+    Searches for both 'sae_activations' and 'activations' patterns.
 
     Args:
         input_dir (str): Base input directory
@@ -20,15 +23,24 @@ def get_metadata_path(input_dir, model_name, layer):
         layer (str): Layer number
 
     Returns:
-        Path: Path to metadata CSV file
+        Path: Path to metadata CSV file, or None if not found
     """
     # Clean model name for file path
     clean_model_name = re.sub(r"[^a-zA-Z0-9]", "-", model_name)
-    metadata_path = (
-        Path(input_dir) / f"{clean_model_name}_{layer}_sae_activations_metadata.csv"
-    )
-    logging.info(f"Metadata path: {metadata_path}")
-    return metadata_path
+
+    # Create the base pattern
+    base_pattern = f"{clean_model_name}_{layer}_*activations_metadata.csv"
+
+    # Use glob to search for files matching the pattern
+    matching_files = glob.glob(str(Path(input_dir) / base_pattern))
+
+    if matching_files:
+        metadata_path = Path(matching_files[0])
+        logging.info(f"Metadata path found: {metadata_path}")
+        return metadata_path
+    else:
+        logging.warning(f"No metadata file found matching pattern: {base_pattern}")
+        return None
 
 
 def load_npz_file(npz_path, sample_id, label, progress_dict=None):
@@ -141,14 +153,16 @@ def process_batch(batch, sae, cfg_dict, last_token, top_n, device, progress_dict
         raise
 
 
-def optimized_top_n_to_one_hot(array, top_n, progress_dict=None, binary=False, int8=False):
+def optimized_top_n_to_one_hot(
+    array, top_n, progress_dict=None, binary=False, int8=False
+):
     """Memory-efficient top-n to one-hot conversion with progress tracking."""
     if array is None:
         return None
 
     token_length, dim_size = array.shape
 
-    # taking top_n activated functions 
+    # taking top_n activated functions
     top_n_indices = np.argpartition(-array, top_n, axis=1)[:, :top_n]
     sparse_array = np.zeros((token_length, dim_size), dtype=np.uint8)
 
@@ -313,10 +327,12 @@ def save_features(df, layer_dir, model_type):
     print(df.head())
     # # Convert hidden_states from pandas Series to numpy array
     if df["hidden_state"].iloc[0].shape[0] == 1:
-        print('《==》last token already, reducing dimension now')
+        print("《==》last token already, reducing dimension now")
         hidden_states_array = np.array([i[0] for i in df["hidden_state"]])
     else:
-        print('《==》it is going in here - multiple tokens, taking last for residual_stream')
+        print(
+            "《==》it is going in here - multiple tokens, taking last for residual_stream"
+        )
         hidden_states_array = np.array([i[-1] for i in df["hidden_state"]])
 
     # Save features

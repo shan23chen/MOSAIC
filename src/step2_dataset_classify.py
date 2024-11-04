@@ -315,12 +315,14 @@ def main():
                 class_names=label_encoder.classes_,
             )
 
-            dashboard_save_dir = get_dashboard_directory(
+            dashboard_save_dir = get_save_directory(
                 args.dashboard_dir,
                 args.model_name,
                 args.dataset_name,
+                args.dataset_split,
                 layer,
                 args.width,
+                args.dataset_config_name,
             )
             os.makedirs(dashboard_save_dir, exist_ok=True)
 
