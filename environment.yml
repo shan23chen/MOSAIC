@@ -33,4 +33,7 @@ dependencies:
     - dash-bootstrap-components
     - dash-core-components
     - dash-html-components
+    - inspect-ai
+    - vllm
+    - bitsandbytes
     - -e .  # This will install the local package in the current directory
