@@ -1,4 +1,4 @@
-Explainable Classifier with SAE Features from VLLM/LLM
+Explainable Classifier with SAE Features from VLLM/LLM (Code Review)
 
 This project aims to create an explainable classifier by leveraging extracted hidden states from a Vision-Language Model (VLM) or Language Model (LLM), mapping these hidden states to features using a Sparse Autoencoder (SAE). The classifier built on these features will support model interpretability through feature-level insights.
 
