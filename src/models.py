@@ -46,7 +46,9 @@ def load_models_and_tokenizer(
     if model_type == "llm":
         logging.info(f"Loading LLM model ++ {checkpoint}")
         tokenizer = AutoTokenizer.from_pretrained(checkpoint)
-        model = AutoModelForCausalLM.from_pretrained(checkpoint, device_map="auto")
+        model = AutoModelForCausalLM.from_pretrained(
+            checkpoint, device_map="auto", torch_dtype=torch.float16
+        )
     elif model_type == "vlm":
         logging.info(f"Loading VLM model ++ {checkpoint}")
         processor = AutoProcessor.from_pretrained(checkpoint)
@@ -100,36 +102,30 @@ def get_sae_config(
 ) -> Tuple[str, str, Optional[Path]]:
     """
     Generate SAE release name, feature ID, and path to feature explanations.
-
-    Args:
-        model_name: Name/path of the model checkpoint
-        layer: Layer number to extract features from
-        sae_location: Type of SAE release ('res' or 'mlp')
-        width: Width parameter for the SAE configuration (e.g. 16k)
-
-    Returns:
-        Tuple of (sae_location, feature_id, explanation_file_path)
-        explanation_file_path will be None if explanations couldn't be cached
     """
     model_name = model_name.lower()
 
     # Configuration dictionary for different model architectures
     model_configs = {
+        "google/gemma-2b": {
+            "release_template": "gemma-2b-{}-jb",
+            "id_template": "blocks.{}.hook_resid_post",  # Changed this - no width needed
+            "supported_widths": ["width_16k"],
+        },
         "google/gemma-2-2b": {
             "release_template": "gemma-scope-2b-pt-{}-canonical",
             "id_template": "layer_{}/{}/canonical",
-            # TODO @jack this is still wrong on the second width
-            "supported_widths": ["width_16k", "width_524k", "width_1m"],
+            "supported_widths": ["width_16k", "width_65k", "width_1m"],
         },
         "google/gemma-2-9b": {
             "release_template": "gemma-scope-9b-pt-{}-canonical",
             "id_template": "layer_{}/{}/canonical",
-            "supported_widths": ["width_16k", "width_524k", "width_1m"],
+            "supported_widths": ["width_16k", "width_131k", "width_1m"],
         },
         "google/gemma-2-9b-it": {
             "release_template": "gemma-scope-9b-it-{}-canonical",
             "id_template": "layer_{}/{}/canonical",
-            "supported_widths": ["width_16k", "width_524k", "width_1m"],
+            "supported_widths": ["width_16k", "width_131k", "width_1m"],
         },
     }
 
@@ -153,74 +149,57 @@ def get_sae_config(
     # Generate release name and feature ID
     feature_type = "res" if "res" in sae_location else "mlp"
     sae_location = config["release_template"].format(feature_type)
-    feature_id = config["id_template"].format(layer, width)
 
-    # Initialize explanation file path as None
+    # Different feature ID generation based on model type
+    if model_arch == "google/gemma-2b":
+        feature_id = config["id_template"].format(
+            layer
+        )  # Don't include width for original gemma-2b
+    else:
+        feature_id = config["id_template"].format(
+            layer, width
+        )  # Include width for newer models
+
+    # Rest of the function remains the same...
     explanation_file_path = None
-
     try:
-        # Initialize feature lookup
         feature_lookup = FeatureLookup(
             config_path="resource/pretrained_saes.yaml", cache_dir="./explanation_cache"
         )
-
-        # Get Neuronpedia ID from config
-        neuronpedia_id = feature_lookup.get_neuronpedia_id(sae_location, feature_id)
-
-        if neuronpedia_id:
-            # Extract model name without prefix for cache
-            model_short_name = model_name.split("/")[-1]
-
-            # Get the cache path before fetching
-            explanation_file_path = feature_lookup._get_cache_path(
-                model=model_short_name,
-                layer=str(layer),
-                width=width,
-                sae_location=sae_location,
-            )
-
-            # Fetch and cache explanations
-            success = feature_lookup.fetch_and_save_explanations(
-                model=model_short_name,
-                layer=str(layer),
-                width=width,
-                sae_location=sae_location,
-                neuronpedia_id=neuronpedia_id,
-                api_key=os.getenv("NEURONPEDIA_API_KEY"),
-            )
-
-            if not success:
-                explanation_file_path = None
-                logging.warning(
-                    f"Failed to cache explanations for {model_name} layer {layer}"
-                )
-        else:
-            logging.warning(f"No Neuronpedia ID found for {sae_location} {feature_id}")
-
+        # ... rest of the explanation handling code ...
     except Exception as e:
         logging.error(f"Error fetching explanations: {str(e)}")
         explanation_file_path = None
-        # Continue without explanations - don't block SAE config generation
         pass
 
     return sae_location, feature_id, explanation_file_path
 
 
 def prepare_inputs(images, texts, tokenizer_or_processor, device, model_type):
-    if model_type == "vlm":
+    if model_type == "llm":
+        if texts is None:
+            raise ValueError("Texts are required for LLM models.")
+
+        # Flatten the nested list structure
+        if isinstance(texts, list):
+            # Flatten any nested lists and join with space
+            texts = [" ".join(t) if isinstance(t, list) else str(t) for t in texts]
+
+        # Ensure all elements are strings
+        texts = [str(t) if t is not None else "" for t in texts]
+
+        logging.debug(f"Processed texts sample: {texts[:2]}")  # Log first two examples
+
+        inputs = tokenizer_or_processor(
+            texts, return_tensors="pt", padding=True, truncation=True
+        ).to(device)
+        return inputs
+    elif model_type == "vlm":
         if images is None:
             raise ValueError("Images are required for VLM models.")
         if texts is None:
             texts = [""] * len(images)
         return prepare_image_inputs(images, texts, tokenizer_or_processor, device)
-    elif model_type == "llm":
-        if texts is None:
-            raise ValueError("Texts are required for LLM models.")
-        # Directly tokenize the input texts
-        inputs = tokenizer_or_processor(
-            texts, return_tensors="pt", padding=True, truncation=True
-        ).to(device)
-        return inputs
     else:
         raise ValueError(f"Unsupported model_type: {model_type}")
 

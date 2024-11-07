@@ -1,248 +1,103 @@
-export CUDA_VISIBLE_DEVICES=0  # Use only GPU 0
+#!/bin/sh
 
-# python step1_extract_all.py --model_name Intel/llava-gemma-2b \
-#     --model_type vlm \
-#     --sae_release gemma-2b \
-#     --layer 12 \
-#     --checkpoint Intel/llava-gemma-2b \
-#     --save_dir ./output_vlm_both \
-#     --dataset_name renumics/cifar100-enriched \
-#     --dataset_split test \
-#     --text_field fine_label_str \
-#     --image_field full_image \
-#     --label_field fine_label_str \
-#     --act_only False \
-#     --max_batches 3
+# Base output directory
+BASE_SAVE_DIR="./outputs"
 
-###################################### Anthropic ##############################################
-python step1_extract_all.py --model_name google/gemma-2-2b \
-    --model_type llm \
-    --sae_location res \
-    --layer 5,12,19 \
-    --save_dir ./output_llm_both/ \
-    --dataset_name Anthropic/election_questions \
-    --dataset_split test \
-    --text_field question \
-    --batch_size 16 \
-    --image_field NA \
-    --label_field label \
-    --act_only False \
-    --width 16k
-    # --max_batches 3 
+# Common parameters
+BATCH_SIZE=2
+MODEL_TYPE="llm"
+SAE_LOCATION="res"
 
+# Function to run extraction with error handling
+run_extraction() {
+    model_name=$1
+    layers=$2
+    width=$3
+    dataset_name=$4
+    text_field=$5
+    label_field=$6
+    dataset_split=$7
     
-# python step1_extract_all.py --model_name google/gemma-2-9b \
-#     --model_type llm \
-#     --sae_location res \
-#     --layer 9,20,31 \
-#     --save_dir ./output_llm_both/ \
-#     --dataset_name Anthropic/election_questions \
-#     --dataset_split test \
-#     --text_field question \
-#     --batch_size 2 \
-#     --image_field NA \
-#     --label_field label \
-#     --act_only False \
-#     --width 16k
- 
-#     # --max_batches 3 
-# python step1_extract_all.py --model_name google/gemma-2-9b-it \
-#     --model_type llm \
-#     --sae_location res \
-#     --layer 9,20,31 \
-#     --save_dir ./output_llm_both/ \
-#     --dataset_name Anthropic/election_questions \
-#     --dataset_split test \
-#     --text_field question \
-#     --batch_size 2 \
-#     --image_field NA \
-#     --label_field label \
-#     --act_only False \
-#     --width 16k
-
-###################################### TextDetox EN ##############################################
-
-python step1_extract_all.py --model_name google/gemma-2-2b \
-    --model_type llm \
-    --sae_location res \
-    --layer 5,12,19 \
-    --save_dir ./output_llm_both/ \
-    --dataset_name textdetox/multilingual_toxicity_dataset \
-    --dataset_split en \
-    --text_field text \
-    --batch_size 16 \
-    --image_field NA \
-    --label_field toxic \
-    --act_only False \
-    --width 16k
-    # --max_batches 3 
+    # Create specific output directory including model and width information
+    model_short_name=$(echo ${model_name} | cut -d'/' -f2)
+    save_dir="${BASE_SAVE_DIR}/${model_short_name}/width_${width}"
     
-# python step1_extract_all.py --model_name google/gemma-2-9b \
-#     --model_type llm \
-#     --sae_location res \
-#     --layer 9,20,31 \
-#     --save_dir ./output_llm_both/ \
-#     --dataset_name textdetox/multilingual_toxicity_dataset \
-#     --dataset_split en \
-#     --text_field text \
-#     --batch_size 2 \
-#     --image_field NA \
-#     --label_field toxic \
-#     --act_only False \
-#     --width 16k
-#     # --max_batches 3 
- 
-#     # --max_batches 3 
-# python step1_extract_all.py --model_name google/gemma-2-9b-it \
-#     --model_type llm \
-#     --sae_location res \
-#     --layer 9,20,31 \
-#     --save_dir ./output_llm_both/ \
-#     --dataset_name textdetox/multilingual_toxicity_dataset \
-#     --dataset_split en \
-#     --text_field text \
-#     --batch_size 2 \
-#     --image_field NA \
-#     --label_field toxic \
-#     --act_only False \
-#     --width 16k
-#     # --max_batches 3 
+    echo "==============================================="
+    echo "Starting extraction with configuration:"
+    echo "Model: ${model_name}"
+    echo "Layers: ${layers}"
+    echo "Width: ${width}"
+    echo "Dataset: ${dataset_name}"
+    echo "Split: ${dataset_split}"
+    echo "==============================================="
+    
+    mkdir -p ${save_dir}
+    
+    python step1_extract_all.py \
+        --model_name ${model_name} \
+        --model_type ${MODEL_TYPE} \
+        --sae_location ${SAE_LOCATION} \
+        --layer ${layers} \
+        --save_dir ${save_dir} \
+        --dataset_name ${dataset_name} \
+        --dataset_split ${dataset_split} \
+        --text_field ${text_field} \
+        --batch_size ${BATCH_SIZE} \
+        --image_field NA \
+        --label_field ${label_field} \
+        --act_only True \
+        --width ${width}
+    
+    status=$?
+    if [ ${status} -eq 0 ]; then
+        echo "Successfully completed extraction for ${dataset_name} with ${model_name} (width=${width})"
+    else
+        echo "Error during extraction for ${dataset_name} with ${model_name} (width=${width})"
+        echo "Error code: ${status}"
+    fi
+}
 
-###################################### TextDetox ZH ##############################################
-python step1_extract_all.py --model_name google/gemma-2-2b \
-    --model_type llm \
-    --sae_location res \
-    --layer 5,12,19 \
-    --save_dir ./output_llm_both/ \
-    --dataset_name textdetox/multilingual_toxicity_dataset \
-    --dataset_split zh \
-    --text_field text \
-    --batch_size 16 \
-    --image_field NA \
-    --label_field toxic \
-    --act_only False \
-    --width 16k
-    # --max_batches 3
+# Create base output directory
+mkdir -p ${BASE_SAVE_DIR}
 
-# python step1_extract_all.py --model_name google/gemma-2-9b \
-#     --model_type llm \
-#     --sae_location res \
-#     --layer 9,20,31 \
-#     --save_dir ./output_llm_both/ \
-#     --dataset_name textdetox/multilingual_toxicity_dataset \
-#     --dataset_split zh \
-#     --text_field text \
-#     --batch_size 2 \
-#     --image_field NA \
-#     --label_field toxic \
-#     --act_only False \
-#     --width 16k
-#     # --max_batches 3
+echo "Starting extractions at: $(date)"
 
-# python step1_extract_all.py --model_name google/gemma-2-9b-it \
-#     --model_type llm \
-#     --sae_location res \
-#     --layer 9,20,31 \
-#     --save_dir ./output_llm_both/ \
-#     --dataset_name textdetox/multilingual_toxicity_dataset \
-#     --dataset_split zh \
-#     --text_field text \
-#     --batch_size 2 \
-#     --image_field NA \
-#     --label_field toxic \
-#     --act_only False \
-#     --width 16k
-#     # --max_batches 3
+# Process each dataset for Gemma 1 2B
+echo "Processing Gemma 1 2B configurations..."
+run_extraction "google/gemma-2b" "6,12,17" "16k" "sorry-bench/sorry-bench-202406" "turns" "category" "train"
+# run_extraction "google/gemma-2b" "6,12,17" "16k" "Anthropic/election_questions" "question" "label" "test"
+# run_extraction "google/gemma-2b" "6,12,17" "16k" "textdetox/multilingual_toxicity_dataset" "text" "toxic" "en"
+# run_extraction "google/gemma-2b" "6,12,17" "16k" "AIM-Harvard/reject_prompts" "text" "label" "train"
+# run_extraction "google/gemma-2b" "6,12,17" "16k" "jackhhao/jailbreak-classification" "prompt" "type" "test"
 
-###################################### AIM-Harvard ##############################################
-python step1_extract_all.py --model_name google/gemma-2-2b \
-    --model_type llm \
-    --sae_location res \
-    --layer 5,12,19 \
-    --save_dir ./output_llm_both/ \
-    --dataset_name AIM-Harvard/reject_prompts \
-    --dataset_split train \
-    --text_field text \
-    --batch_size 16 \
-    --image_field NA \
-    --label_field label \
-    --act_only False \
-    --width 16k
-    # --max_batches 3
+# Process each dataset for Gemma 2 2B (all widths)
+for width in "16k" "65k"; do # 1m too much ram
+    echo "Processing Gemma 2 2B configurations (${width} width)..."
+    run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "sorry-bench/sorry-bench-202406" "turns" "category" "train"
+#     run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "Anthropic/election_questions" "question" "label" "test"
+#     run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "textdetox/multilingual_toxicity_dataset" "text" "toxic" "en"
+#     run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "AIM-Harvard/reject_prompts" "text" "label" "train"
+#     run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "jackhhao/jailbreak-classification" "prompt" "type" "test"
+done
 
-# python step1_extract_all.py --model_name google/gemma-2-9b \
-#     --model_type llm \
-#     --sae_location res \
-#     --layer 9,20,31 \
-#     --save_dir ./output_llm_both/ \
-#     --dataset_name AIM-Harvard/reject_prompts \
-#     --dataset_split train \
-#     --text_field text \
-#     --batch_size 2 \
-#     --image_field NA \
-#     --label_field label \
-#     --act_only False \
-#     --width 16k
-#     # --max_batches 3
+# Process each dataset for Gemma 2 9B (all widths)
+for width in "16k","131k"; do
+    echo "Processing Gemma 2 9B configurations (${width} width)..."
+    run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "sorry-bench/sorry-bench-202406" "turns" "category" "train"
+    # run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "Anthropic/election_questions" "question" "label" "test"
+    # run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "textdetox/multilingual_toxicity_dataset" "text" "toxic" "en"
+    # run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "AIM-Harvard/reject_prompts" "text" "label" "train"
+    # run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "jackhhao/jailbreak-classification" "prompt" "type" "train"
+done
 
-# python step1_extract_all.py --model_name google/gemma-2-9b-it \
-#     --model_type llm \
-#     --sae_location res \
-#     --layer 9,20,31 \
-#     --save_dir ./output_llm_both/ \
-#     --dataset_name AIM-Harvard/reject_prompts \
-#     --dataset_split train \
-#     --text_field text \
-#     --batch_size 2 \
-#     --image_field NA \
-#     --label_field label \
-#     --act_only False \
-#     --width 16k
-#     # --max_batches 3
+# Process each dataset for Gemma 2 9B IT (all widths)
+for width in "16k", "131k"; do
+    echo "Processing Gemma 2 9B IT configurations (${width} width)..."
+    run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "sorry-bench/sorry-bench-202406" "turns" "category" "train"
+    # run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "Anthropic/election_questions" "question" "label" "test"
+    # run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "textdetox/multilingual_toxicity_dataset" "text" "toxic" "en"
+    # run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "AIM-Harvard/reject_prompts" "text" "label" "train"
+    # run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "jackhhao/jailbreak-classification" "prompt" "type" "test"
+done
 
-###################################### Jailbreak ##############################################
-# python step1_extract_all.py --model_name google/gemma-2-2b \
-#     --model_type llm \
-#     --sae_location res \
-#     --layer 5,12,19 \
-#     --save_dir ./output_llm_both/ \
-#     --dataset_name jackhhao/jailbreak-classification \
-#     --dataset_split train \
-#     --text_field prompt \
-#     --batch_size 16 \
-#     --image_field NA \
-#     --label_field type \
-#     --act_only False \
-#     --width 16k
-#     # --max_batches 3
-
-# python step1_extract_all.py --model_name google/gemma-2-9b \
-#     --model_type llm \
-#     --sae_location res \
-#     --layer 9,20,31 \
-#     --save_dir ./output_llm_both/ \
-#     --dataset_name jackhhao/jailbreak-classification \
-#     --dataset_split train \
-#     --text_field prompt \
-#     --batch_size 2 \
-#     --image_field NA \
-#     --label_field type \
-#     --act_only False \
-#     --width 16k
-#     # --max_batches 3
-
-# python step1_extract_all.py --model_name google/gemma-2-9b-it \
-#     --model_type llm \
-#     --sae_location res \
-#     --layer 9,20,31 \
-#     --save_dir ./output_llm_both/ \
-#     --dataset_name jackhhao/jailbreak-classification \
-#     --dataset_split train \
-#     --text_field prompt \
-#     --batch_size 2 \
-#     --image_field NA \
-#     --label_field type \
-#     --act_only False \
-#     --width 16k
-#     # --max_batches 3
-
+echo "All extractions completed at: $(date)"
