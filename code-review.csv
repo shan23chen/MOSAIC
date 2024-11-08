@@ -13,3 +13,4 @@ sha,filename,url,lines,title,comment,priority,category,additional,id,private
 "12d4b2ddd3c4d94b1db9b043836d1d2754d0c37b","/src/run_process.sh","","1:0-54:0","Move to scripts on outside of src","","0","","","6415fc15-59d7-44c2-9f29-87b3c90c074c","0"
 "12d4b2ddd3c4d94b1db9b043836d1d2754d0c37b","/src/shan.sh","","1:0-210:18","Move to scripts on outside of src","","0","","","3356e910-6acf-4a28-b459-9f2b73d1475c","0"
 "12d4b2ddd3c4d94b1db9b043836d1d2754d0c37b","/src/readme.md","","1:0-45:0","Move to outside of src or in scripts folder","","0","","","1d6fb9ba-ebf7-4c4e-a495-f1ab44950320","0"
+"d7e457c26928cdd7c37c25d84fd26adc1776ccc4","/src/models.py","","164:12-164:88","Bad Practice to have hard coded paths","","0","","","7ece1593-abe8-4243-b05f-eb6188641a12","0"
