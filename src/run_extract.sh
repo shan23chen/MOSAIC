@@ -64,40 +64,40 @@ echo "Starting extractions at: $(date)"
 
 # Process each dataset for Gemma 1 2B
 echo "Processing Gemma 1 2B configurations..."
-run_extraction "google/gemma-2b" "6,12,17" "16k" "sorry-bench/sorry-bench-202406" "turns" "category" "train"
-# run_extraction "google/gemma-2b" "6,12,17" "16k" "Anthropic/election_questions" "question" "label" "test"
-# run_extraction "google/gemma-2b" "6,12,17" "16k" "textdetox/multilingual_toxicity_dataset" "text" "toxic" "en"
-# run_extraction "google/gemma-2b" "6,12,17" "16k" "AIM-Harvard/reject_prompts" "text" "label" "train"
-# run_extraction "google/gemma-2b" "6,12,17" "16k" "jackhhao/jailbreak-classification" "prompt" "type" "test"
+run_extraction "google/gemma-2b" "17" "16k" "sorry-bench/sorry-bench-202406" "turns" "category" "train"
+run_extraction "google/gemma-2b" "6,12,17" "16k" "Anthropic/election_questions" "question" "label" "test"
+run_extraction "google/gemma-2b" "6,12,17" "16k" "textdetox/multilingual_toxicity_dataset" "text" "toxic" "en"
+run_extraction "google/gemma-2b" "6,12,17" "16k" "AIM-Harvard/reject_prompts" "text" "label" "train"
+run_extraction "google/gemma-2b" "6,12,17" "16k" "jackhhao/jailbreak-classification" "prompt" "type" "test"
 
 # Process each dataset for Gemma 2 2B (all widths)
 for width in "16k" "65k"; do # 1m too much ram
     echo "Processing Gemma 2 2B configurations (${width} width)..."
     run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "sorry-bench/sorry-bench-202406" "turns" "category" "train"
-#     run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "Anthropic/election_questions" "question" "label" "test"
-#     run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "textdetox/multilingual_toxicity_dataset" "text" "toxic" "en"
-#     run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "AIM-Harvard/reject_prompts" "text" "label" "train"
-#     run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "jackhhao/jailbreak-classification" "prompt" "type" "test"
+    run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "Anthropic/election_questions" "question" "label" "test"
+    run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "textdetox/multilingual_toxicity_dataset" "text" "toxic" "en"
+    run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "AIM-Harvard/reject_prompts" "text" "label" "train"
+    run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "jackhhao/jailbreak-classification" "prompt" "type" "test"
 done
 
 # Process each dataset for Gemma 2 9B (all widths)
-for width in "16k","131k"; do
+for width in "16k" "131k"; do
     echo "Processing Gemma 2 9B configurations (${width} width)..."
     run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "sorry-bench/sorry-bench-202406" "turns" "category" "train"
-    # run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "Anthropic/election_questions" "question" "label" "test"
-    # run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "textdetox/multilingual_toxicity_dataset" "text" "toxic" "en"
-    # run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "AIM-Harvard/reject_prompts" "text" "label" "train"
-    # run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "jackhhao/jailbreak-classification" "prompt" "type" "train"
+    run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "Anthropic/election_questions" "question" "label" "test"
+    run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "textdetox/multilingual_toxicity_dataset" "text" "toxic" "en"
+    run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "AIM-Harvard/reject_prompts" "text" "label" "train"
+    run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "jackhhao/jailbreak-classification" "prompt" "type" "test"
 done
 
 # Process each dataset for Gemma 2 9B IT (all widths)
-for width in "16k", "131k"; do
+for width in "16k" "131k"; do
     echo "Processing Gemma 2 9B IT configurations (${width} width)..."
     run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "sorry-bench/sorry-bench-202406" "turns" "category" "train"
-    # run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "Anthropic/election_questions" "question" "label" "test"
-    # run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "textdetox/multilingual_toxicity_dataset" "text" "toxic" "en"
-    # run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "AIM-Harvard/reject_prompts" "text" "label" "train"
-    # run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "jackhhao/jailbreak-classification" "prompt" "type" "test"
+    run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "Anthropic/election_questions" "question" "label" "test"
+    run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "textdetox/multilingual_toxicity_dataset" "text" "toxic" "en"
+    run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "AIM-Harvard/reject_prompts" "text" "label" "train"
+    run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "jackhhao/jailbreak-classification" "prompt" "type" "test"
 done
 
 echo "All extractions completed at: $(date)"
