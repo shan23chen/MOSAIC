@@ -52,7 +52,7 @@ def register_callbacks(app, model_name, model, processor, sae, neuron_cache, sae
             feature_graphs.append(create_importance_plot(feature_names, feature_values, feature_indexes, px.colors.sequential.Blues, title))
 
             if title == "Decision Tree":
-                feature_graphs.append(create_tree_visualization(get_tree_info(classifier, feature_names)), [str(x) for x in list(label_encoder.classes_)])
+                feature_graphs.append(create_tree_visualization(get_tree_info(classifier, feature_names), [str(x) for x in list(label_encoder.classes_)]))
             
             return image_data, feature_graphs
         return None, None

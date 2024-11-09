@@ -153,7 +153,7 @@ def create_tree_visualization(tree_structure, class_names) -> html.Div:
             html.Div(" | ".join(node_info), className="small text-muted mb-1"),
         ]
 
-        if values:
+        if len(values) != 0:
             node_content.append(
                 create_class_distribution_badges(values, sum(values), class_names)
             )
@@ -195,27 +195,26 @@ def create_tree_visualization(tree_structure, class_names) -> html.Div:
 def get_tree_info(tree_model, feature_names):
     tree = tree_model.tree_
     tree_info = {
-        "children_left": tree.children_left,  # Array of left child indices
-        "children_right": tree.children_right,  # Array of right child indices
-        "feature": tree.feature,  # Feature used for splitting at each node
-        "threshold": tree.threshold,  # Threshold values for splits
+        "children_left": tree.children_left.tolist(),  # Array of left child indices
+        "children_right": tree.children_right.tolist(),  # Array of right child indices
+        "feature": tree.feature.tolist(),  # Feature used for splitting at each node
+        "threshold": tree.threshold.tolist(),  # Threshold values for splits
         "n_node_samples": tree.n_node_samples,  # Number of samples at each node
-        "impurity": tree.impurity,  # Gini impurity at each node
-        "value": tree.value,  # Class distribution at each node
+        "impurity": tree.impurity.tolist(),  # Gini impurity at each node
+        "value": tree.value.tolist(),  # Class distribution at each node
     }
 
-    return {"tree_structure": {
-                        "topology": {
-                            "children_left": tree_info["children_left"],
-                            "children_right": tree_info["children_right"],
-                            "feature_indices": tree_info["feature"],
-                            "feature_names": feature_names
-                        },
-                        "node_data": {
-                            "thresholds": tree_info["threshold"],
-                            "samples": tree_info["n_node_samples"],
-                            "impurity": tree_info["impurity"],
-                            "values": tree_info["value"],
-                        },
-                    },
+    return {
+        "topology": {
+            "children_left": tree_info["children_left"],
+            "children_right": tree_info["children_right"],
+            "feature_indices": tree_info["feature"],
+            "feature_names": feature_names
+        },
+        "node_data": {
+            "thresholds": tree_info["threshold"],
+            "samples": tree_info["n_node_samples"],
+            "impurity": tree_info["impurity"],
+            "values": tree_info["value"],
+        },
     }
