@@ -11,6 +11,9 @@ import torch
 
 import numpy as np
 
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+
 from transformers import LlavaForConditionalGeneration, AutoProcessor
 from sae_lens import SAE
 
@@ -150,16 +153,49 @@ def process_image(contents, model_name, model, processor, sae, neuron_cache, sae
 
     top_n_sae = optimized_top_n_to_one_hot(sae_acts, top_n)
 
-    prediction = label_encoder.inverse_transform(classifier.predict(top_n_sae.reshape(1, -1)))
+    prediction = classifier.predict(top_n_sae.reshape(1, -1))
 
-    feature_importances = classifier.coef_ * top_n_sae
+    prediction_name = label_encoder.inverse_transform(prediction)
 
-    feature_importances = feature_importances[0]
+    if isinstance(classifier, DecisionTreeClassifier):
+        feature_importances = classifier.feature_importances_
 
-    top_10_features = np.argsort(feature_importances)[:10]
+        top_10_features = np.argsort(classifier.feature_importances_)[::-1][:10]
+
+        title = "Decision Tree"
+    elif isinstance(classifier, LogisticRegression):
+        if len(classifier.classes_) == 2:
+            feature_importances = classifier.coef_ * top_n_sae
+
+            feature_importances = feature_importances[0]
+
+            if prediction == 0:
+                feature_importances_for_class = feature_importances[feature_importances < 0]
+
+                index = np.where(feature_importances < 0)[0]
+
+                top_10_features = [index[int(x)] for x in np.argsort(feature_importances_for_class)[:10]]
+
+            else:
+                feature_importances_for_class = feature_importances[feature_importances > 0]
+
+                index = np.where(feature_importances > 0)[0]
+            
+                top_10_features = [index[int(x)] for x in np.argsort(feature_importances_for_class)[::-1][:10]]
+        
+        else:
+            feature_importances = (classifier.coef_[prediction] * top_n_sae)[0]
+
+            index = np.where(feature_importances > 0)[0]
+
+            feature_importances_for_class = feature_importances[feature_importances > 0]
+            
+            top_10_features = [index[int(x)] for x in np.argsort(feature_importances_for_class)[::-1][:10]]
+    
+        title = "Linear Probe"
 
     top_10_names = [neuron_cache[str(x)] for x in top_10_features]
 
-    top_10_scores = [feature_importances[x] for x in top_10_features]
+    top_10_scores = [float(feature_importances[x]) for x in top_10_features]
 
-    return top_10_names, top_10_scores
+    return top_10_names, top_10_scores, top_10_features, title

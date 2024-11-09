@@ -7,6 +7,9 @@ from dash.dependencies import Input, Output, State
 import plotly.express as px
 
 from interactive.components.model import process_image
+from interactive.components.plots import create_importance_plot
+from interactive.components.tree_viz import create_tree_visualization, get_tree_info
+
 
 def create_layout() -> html.Div:
     """Create main dashboard layout with options banner."""
@@ -41,15 +44,17 @@ def register_callbacks(app, model_name, model, processor, sae, neuron_cache, sae
             # Display uploaded image
             image_data = html.Img(src=contents, style={'height': '300px'})
 
+            feature_graphs = []
+
             # Process image and extract features
-            top_features, feature_values = process_image(contents, model_name, model, processor, sae, neuron_cache, sae_layer, classifier, label_encoder, top_n)
+            feature_names, feature_values, feature_indexes, title = process_image(contents, model_name, model, processor, sae, neuron_cache, sae_layer, classifier, label_encoder, top_n) 
             
-            # Create a bar chart for the most important features
-            fig = px.bar(x=top_features, y=feature_values, labels={'x': 'Feature', 'y': 'Importance'},
-                        title="Top 10 Important Features")
-            feature_graph = dcc.Graph(figure=fig)
+            feature_graphs.append(create_importance_plot(feature_names, feature_values, feature_indexes, px.colors.sequential.Blues, title))
+
+            if title == "Decision Tree":
+                feature_graphs.append(create_tree_visualization(get_tree_info(classifier, feature_names)), [str(x) for x in list(label_encoder.classes_)])
             
-            return image_data, feature_graph
+            return image_data, feature_graphs
         return None, None
 
 
