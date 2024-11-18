@@ -8,6 +8,6 @@ cache/
 sae_llava.egg-info/
 *.log
 *.out
-*.zip
-*zip
+src/run_zip.sh
 .env
+src/outputs/
