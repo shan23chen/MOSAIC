@@ -1,103 +1,118 @@
 #!/bin/sh
 
-# Base output directory
-BASE_SAVE_DIR="./outputs"
-
-# Common parameters
-BATCH_SIZE=2
+# Base input directory
+BASE_INPUT_DIR="./outputs"
+DASHBOARD_DIR="../dashboard_data"
 MODEL_TYPE="llm"
 SAE_LOCATION="res"
+TOP_N=5
+TEST_SIZE=0.2
+TREE_DEPTH=5
 
-# Function to run extraction with error handling
-run_extraction() {
-    model_name=$1
-    layers=$2
-    width=$3
+# Set GPU for processing
+export CUDA_VISIBLE_DEVICES=0  # Use only GPU 0
+
+# Function to run dataset classification with error handling
+run_classification() {
+    input_dir=$1
+    model_name=$2
+    checkpoint=$3
     dataset_name=$4
-    text_field=$5
-    label_field=$6
+    layers=$5
+    width=$6
     dataset_split=$7
-    
-    # Create specific output directory including model and width information
-    model_short_name=$(echo ${model_name} | cut -d'/' -f2)
-    save_dir="${BASE_SAVE_DIR}/${model_short_name}/width_${width}"
-    
+
     echo "==============================================="
-    echo "Starting extraction with configuration:"
+    echo "Starting classification with configuration:"
     echo "Model: ${model_name}"
     echo "Layers: ${layers}"
     echo "Width: ${width}"
     echo "Dataset: ${dataset_name}"
     echo "Split: ${dataset_split}"
     echo "==============================================="
-    
-    mkdir -p ${save_dir}
-    
-    python step1_extract_all.py \
-        --model_name ${model_name} \
-        --model_type ${MODEL_TYPE} \
-        --sae_location ${SAE_LOCATION} \
+
+    python step2_dataset_classify.py \
+        --input-dir ${input_dir} \
+        --dashboard-dir ${DASHBOARD_DIR} \
+        --model-name ${model_name} \
+        --dataset-name ${dataset_name} \
+        --model-type ${MODEL_TYPE} \
+        --dataset-split ${dataset_split} \
         --layer ${layers} \
-        --save_dir ${save_dir} \
-        --dataset_name ${dataset_name} \
-        --dataset_split ${dataset_split} \
-        --text_field ${text_field} \
-        --batch_size ${BATCH_SIZE} \
-        --image_field NA \
-        --label_field ${label_field} \
-        --act_only True \
-        --width ${width}
-    
+        --sae_location ${SAE_LOCATION} \
+        --width ${width} \
+        --top-n ${TOP_N} \
+        --test-size ${TEST_SIZE} \
+        --tree-depth ${TREE_DEPTH} \
+        --save-plots
+
     status=$?
     if [ ${status} -eq 0 ]; then
-        echo "Successfully completed extraction for ${dataset_name} with ${model_name} (width=${width})"
+        echo "Successfully completed classification for ${dataset_name} with ${model_name} (width=${width})"
     else
-        echo "Error during extraction for ${dataset_name} with ${model_name} (width=${width})"
+        echo "Error during classification for ${dataset_name} with ${model_name} (width=${width})"
         echo "Error code: ${status}"
     fi
 }
 
-# Create base output directory
-mkdir -p ${BASE_SAVE_DIR}
-
-echo "Starting extractions at: $(date)"
-
 # Process each dataset for Gemma 1 2B
-echo "Processing Gemma 1 2B configurations..."
-run_extraction "google/gemma-2b" "17" "16k" "sorry-bench/sorry-bench-202406" "turns" "category" "train"
-run_extraction "google/gemma-2b" "6,12,17" "16k" "Anthropic/election_questions" "question" "label" "test"
-run_extraction "google/gemma-2b" "6,12,17" "16k" "textdetox/multilingual_toxicity_dataset" "text" "toxic" "en"
-run_extraction "google/gemma-2b" "6,12,17" "16k" "AIM-Harvard/reject_prompts" "text" "label" "train"
-run_extraction "google/gemma-2b" "6,12,17" "16k" "jackhhao/jailbreak-classification" "prompt" "type" "test"
-
-# Process each dataset for Gemma 2 2B (all widths)
-for width in "16k" "65k"; do # 1m too much ram
-    echo "Processing Gemma 2 2B configurations (${width} width)..."
-    run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "sorry-bench/sorry-bench-202406" "turns" "category" "train"
-    run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "Anthropic/election_questions" "question" "label" "test"
-    run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "textdetox/multilingual_toxicity_dataset" "text" "toxic" "en"
-    run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "AIM-Harvard/reject_prompts" "text" "label" "train"
-    run_extraction "google/gemma-2-2b" "5,12,19" "${width}" "jackhhao/jailbreak-classification" "prompt" "type" "test"
+MODEL_NAME="google/gemma-2b"
+LAYERS="6,12,17"
+MODEL_SHORT_NAME=$(echo ${MODEL_NAME} | cut -d'/' -f2)
+for width in "16k"; do
+    for dataset in "sorry-bench/sorry-bench-202406:train" "Anthropic/election_questions:test" \
+                   "textdetox/multilingual_toxicity_dataset:en" "AIM-Harvard/reject_prompts:train" \
+                   "jackhhao/jailbreak-classification:test"; do
+        dataset_name=$(echo $dataset | cut -d':' -f1)
+        dataset_split=$(echo $dataset | cut -d':' -f2)
+        input_dir="${BASE_INPUT_DIR}/${MODEL_SHORT_NAME}/width_${width}"
+        run_classification ${input_dir} ${MODEL_NAME} ${MODEL_NAME} ${dataset_name} ${LAYERS} ${width} ${dataset_split}
+    done
 done
 
-# Process each dataset for Gemma 2 9B (all widths)
+# Process each dataset for Gemma 2 2B
+MODEL_NAME="google/gemma-2-2b"
+LAYERS="5,12,19"
+MODEL_SHORT_NAME=$(echo ${MODEL_NAME} | cut -d'/' -f2)
+for width in "16k" "65k"; do
+    for dataset in "sorry-bench/sorry-bench-202406:train" "Anthropic/election_questions:test" \
+                   "textdetox/multilingual_toxicity_dataset:en" "AIM-Harvard/reject_prompts:train" \
+                   "jackhhao/jailbreak-classification:test"; do
+        dataset_name=$(echo $dataset | cut -d':' -f1)
+        dataset_split=$(echo $dataset | cut -d':' -f2)
+        input_dir="${BASE_INPUT_DIR}/${MODEL_SHORT_NAME}/width_${width}"
+        run_classification ${input_dir} ${MODEL_NAME} ${MODEL_NAME} ${dataset_name} ${LAYERS} ${width} ${dataset_split}
+    done
+done
+
+# Process each dataset for Gemma 2 9B
+MODEL_NAME="google/gemma-2-9b"
+LAYERS="9,20,31"
+MODEL_SHORT_NAME=$(echo ${MODEL_NAME} | cut -d'/' -f2)
 for width in "16k" "131k"; do
-    echo "Processing Gemma 2 9B configurations (${width} width)..."
-    run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "sorry-bench/sorry-bench-202406" "turns" "category" "train"
-    run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "Anthropic/election_questions" "question" "label" "test"
-    run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "textdetox/multilingual_toxicity_dataset" "text" "toxic" "en"
-    run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "AIM-Harvard/reject_prompts" "text" "label" "train"
-    run_extraction "google/gemma-2-9b" "9,20,31" "${width}" "jackhhao/jailbreak-classification" "prompt" "type" "test"
+    for dataset in "sorry-bench/sorry-bench-202406:train" "Anthropic/election_questions:test" \
+                   "textdetox/multilingual_toxicity_dataset:en" "AIM-Harvard/reject_prompts:train" \
+                   "jackhhao/jailbreak-classification:test"; do
+        dataset_name=$(echo $dataset | cut -d':' -f1)
+        dataset_split=$(echo $dataset | cut -d':' -f2)
+        input_dir="${BASE_INPUT_DIR}/${MODEL_SHORT_NAME}/width_${width}"
+        run_classification ${input_dir} ${MODEL_NAME} ${MODEL_NAME} ${dataset_name} ${LAYERS} ${width} ${dataset_split}
+    done
 done
 
-# Process each dataset for Gemma 2 9B IT (all widths)
+# Process each dataset for Gemma 2 9B IT
+MODEL_NAME="google/gemma-2-9b-it"
+LAYERS="9,20,31"
+MODEL_SHORT_NAME=$(echo ${MODEL_NAME} | cut -d'/' -f2)
 for width in "16k" "131k"; do
-    echo "Processing Gemma 2 9B IT configurations (${width} width)..."
-    run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "sorry-bench/sorry-bench-202406" "turns" "category" "train"
-    run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "Anthropic/election_questions" "question" "label" "test"
-    run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "textdetox/multilingual_toxicity_dataset" "text" "toxic" "en"
-    run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "AIM-Harvard/reject_prompts" "text" "label" "train"
-    run_extraction "google/gemma-2-9b-it" "9,20,31" "${width}" "jackhhao/jailbreak-classification" "prompt" "type" "test"
+    for dataset in "sorry-bench/sorry-bench-202406:train" "Anthropic/election_questions:test" \
+                   "textdetox/multilingual_toxicity_dataset:en" "AIM-Harvard/reject_prompts:train" \
+                   "jackhhao/jailbreak-classification:test"; do
+        dataset_name=$(echo $dataset | cut -d':' -f1)
+        dataset_split=$(echo $dataset | cut -d':' -f2)
+        input_dir="${BASE_INPUT_DIR}/${MODEL_SHORT_NAME}/width_${width}"
+        run_classification ${input_dir} ${MODEL_NAME} ${MODEL_NAME} ${dataset_name} ${LAYERS} ${width} ${dataset_split}
+    done
 done
 
-echo "All extractions completed at: $(date)"
+echo "All classifications completed at: $(date)"

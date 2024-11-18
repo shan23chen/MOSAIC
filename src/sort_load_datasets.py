@@ -10,6 +10,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from sklearn.preprocessing import LabelEncoder
 from tqdm import tqdm
 
+
 def get_metadata_path(input_dir, model_name, layer):
     """
     Construct metadata file path based on run.py output structure.
@@ -24,9 +25,17 @@ def get_metadata_path(input_dir, model_name, layer):
     """
     # Clean model name for file path
     clean_model_name = re.sub(r"[^a-zA-Z0-9]", "-", model_name)
-    metadata_path = (
+    metadata_path_with_sae = (
         Path(input_dir) / f"{clean_model_name}_{layer}_sae_activations_metadata.csv"
     )
+    metadata_path_without_sae = (
+        Path(input_dir) / f"{clean_model_name}_{layer}_activations_metadata.csv"
+    )
+
+    if metadata_path_with_sae.exists():
+        metadata_path = metadata_path_with_sae
+    else:
+        metadata_path = metadata_path_without_sae
     logging.info(f"Metadata path: {metadata_path}")
     return metadata_path
 
@@ -53,13 +62,14 @@ def load_npz_file(npz_path, sample_id, label, progress_dict=None):
         logging.error(f"Error processing file {npz_path}: {e}")
         return None
 
+
 def cast_sae_acts_dim_check(sae_acts_list):
     """
     Attempts to cast the 'sae_acts' column of the DataFrame to a NumPy array.
-    
+
     Args:
         sae_acts_list (list): A list of 'sae_acts' values from the DataFrame.
-        
+
     Returns:
         bool: True if casting is successful, False if a ValueError due to inhomogeneous shapes occurs.
     """
@@ -70,14 +80,13 @@ def cast_sae_acts_dim_check(sae_acts_list):
         return True
     except ValueError as e:
         error_message = str(e)
-        target_error = (
-            "The requested array has an inhomogeneous shape"
-        )
+        target_error = "The requested array has an inhomogeneous shape"
         if target_error in error_message:
             return False
         else:
             # Re-raise the exception if it's a different ValueError
             raise
+
 
 def process_batch(batch, sae, cfg_dict, last_token, top_n, device, progress_dict=None):
     """Process batch with progress tracking."""
@@ -164,11 +173,12 @@ def process_batch(batch, sae, cfg_dict, last_token, top_n, device, progress_dict
                 lambda x: optimized_top_n_to_one_hot(x, top_n, progress_dict)
             )
         else:
-            print("=+++++ your sae_acts are different token length, going to loop through +++++++=")
+            print(
+                "=+++++ your sae_acts are different token length, going to loop through +++++++="
+            )
             batch_df["features"] = batch_df["sae_acts"].apply(
                 lambda x: optimized_top_n_to_one_hot(x, top_n, progress_dict)
             )
-
 
         batch_df.drop("sae_acts", axis=1, inplace=True)
 
@@ -179,14 +189,16 @@ def process_batch(batch, sae, cfg_dict, last_token, top_n, device, progress_dict
         raise
 
 
-def optimized_top_n_to_one_hot(array, top_n, progress_dict=None, binary=False, int8=False):
+def optimized_top_n_to_one_hot(
+    array, top_n, progress_dict=None, binary=False, int8=False
+):
     """Memory-efficient top-n to one-hot conversion with progress tracking."""
     if array is None:
         return None
 
     token_length, dim_size = array.shape
 
-    # taking top_n activated functions 
+    # taking top_n activated functions
     top_n_indices = np.argpartition(-array, top_n, axis=1)[:, :top_n]
     sparse_array = np.zeros((token_length, dim_size), dtype=np.uint8)
 
@@ -422,10 +434,12 @@ def save_features(df, layer_dir, model_type):
     print(df.head())
     # # Convert hidden_states from pandas Series to numpy array
     if df["hidden_state"].iloc[0].shape[0] == 1:
-        print('《==》last token already, reducing dimension now')
+        print("《==》last token already, reducing dimension now")
         hidden_states_array = np.array([i[0] for i in df["hidden_state"]])
     else:
-        print('《==》it is going in here - multiple tokens, taking last for residual_stream')
+        print(
+            "《==》it is going in here - multiple tokens, taking last for residual_stream"
+        )
         hidden_states_array = np.array([i[-1] for i in df["hidden_state"]])
 
     # Save features

@@ -1,5 +1,10 @@
 from sklearn.multiclass import OneVsRestClassifier
-from sklearn.preprocessing import StandardScaler, label_binarize, LabelEncoder
+from sklearn.preprocessing import (
+    StandardScaler,
+    label_binarize,
+    LabelEncoder,
+    MinMaxScaler,
+)
 from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
@@ -10,6 +15,7 @@ from sklearn.metrics import (
     classification_report,
     roc_auc_score,
 )
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import logging
@@ -19,6 +25,17 @@ from dataclasses import dataclass
 import json
 import joblib
 from typing import Dict, List, Tuple, Any
+from sklearn.decomposition import PCA
+import umap
+import matplotlib.pyplot as plt
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+import numpy as np
+from sklearn.preprocessing import label_binarize
+from utils import convert_to_serializable
 
 
 @dataclass
@@ -29,6 +46,12 @@ class TrainingConfig:
     random_state: int = 42
     cv_folds: int = 5
     max_iter: int = 5000
+    batch_size: int = 128
+    learning_rate: float = 0.001
+    num_epochs: int = 5000
+    patience: int = 10
+    lr_scheduler_step_size: int = 100  # Period of learning rate decay
+    lr_scheduler_gamma: float = 0.1  # Multiplicative factor of learning rate decay
 
     # Common parameters for both binary and multiclass
     probe_params = {
@@ -52,27 +75,6 @@ class ModelTrainer:
         self.config = config
         self.scaler = StandardScaler()
         self.label_encoder = label_encoder
-
-    # def prepare_hidden_states(
-    #     self, hidden_states: List[np.ndarray], max_length: int = None
-    # ) -> np.ndarray:
-    #     """Prepare hidden states with padding and normalization."""
-    #     if max_length is None:
-    #         max_length = max(state.shape[0] for state in hidden_states)
-
-    #     hidden_dim = hidden_states[0].shape[1]
-    #     n_samples = len(hidden_states)
-    #     padded_states = np.zeros((n_samples, max_length, hidden_dim))
-
-    #     for i, state in enumerate(hidden_states):
-    #         seq_len = min(state.shape[0], max_length)
-    #         padded_states[i, :seq_len] = state[:seq_len]
-
-    #     # Reshape and normalize
-    #     reshaped = padded_states.reshape(n_samples, -1)
-    #     normalized = self.scaler.fit_transform(reshaped)
-
-    #     return normalized
 
     def compute_metrics(
         self,
@@ -132,11 +134,8 @@ class ModelTrainer:
         """Train an optimized linear probe classifier with proper binary/multiclass handling."""
         logging.info("Training linear probe classifier...")
 
-        if hidden:
-            # Prepare data
-            X = df["hidden_states"]
-        else:
-            X = df["features"]
+        # Prepare data
+        X = df["hidden_states"] if hidden else df["features"]
 
         # Encode labels
         y = df["label"]
@@ -156,66 +155,143 @@ class ModelTrainer:
             stratify=y,
         )
 
-        # Create base classifier with common parameters
-        base_classifier = LogisticRegression(
-            random_state=self.config.random_state,
-            max_iter=self.config.max_iter,
+        # Convert data to PyTorch tensors
+        X_train_tensor = torch.tensor(X_train.astype("float32"))
+        y_train_tensor = torch.tensor(y_train.astype("int64"))
+        X_test_tensor = torch.tensor(X_test.astype("float32"))
+        y_test_tensor = torch.tensor(y_test.astype("int64"))
+
+        # Create datasets and data loaders
+        train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
+        test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
+        train_loader = DataLoader(
+            train_dataset, batch_size=self.config.batch_size, shuffle=True
+        )
+        test_loader = DataLoader(test_dataset, batch_size=self.config.batch_size)
+
+        # Device configuration
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # Define the linear probe model
+        input_dim = X_train.shape[1]
+        model = nn.Linear(input_dim, n_classes).to(device)
+
+        # Loss function and optimizer
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(), lr=self.config.learning_rate)
+
+        # Learning rate scheduler
+        scheduler = optim.lr_scheduler.StepLR(
+            optimizer,
+            step_size=self.config.lr_scheduler_step_size,
+            gamma=self.config.lr_scheduler_gamma,
         )
 
-        # For multiclass, wrap with OneVsRestClassifier
-        if n_classes > 2:
-            classifier = OneVsRestClassifier(base_classifier)
-        else:
-            classifier = base_classifier
+        # Training loop with early stopping
+        num_epochs = self.config.num_epochs
+        patience = self.config.patience
+        best_loss = float("inf")
+        epochs_no_improve = 0
+        model.train()
+        for epoch in range(num_epochs):
+            epoch_loss = 0.0
+            for batch_features, batch_labels in train_loader:
+                batch_features, batch_labels = batch_features.to(
+                    device
+                ), batch_labels.to(device)
 
-        # Grid search
-        grid_search = GridSearchCV(
-            classifier,
-            self.config.probe_params,
-            cv=self.config.cv_folds,
-            scoring="accuracy",
-            n_jobs=-1,
-        )
+                # Forward pass
+                outputs = model(batch_features)
+                loss = criterion(outputs, batch_labels)
 
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore")
-            grid_search.fit(X_train, y_train)
+                # Backward pass and optimization
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
-        # Get predictions
-        best_model = grid_search.best_estimator_
-        y_pred = best_model.predict(X_test)
-        y_prob = best_model.predict_proba(X_test)
+                epoch_loss += loss.item()
+
+            # Step the learning rate scheduler
+            scheduler.step()
+
+            epoch_loss /= len(train_loader)
+            logging.info(
+                f"Epoch [{epoch+1}/{num_epochs}], Loss: {epoch_loss:.4f}, Learning Rate: {scheduler.get_last_lr()[0]:.6f}"
+            )
+
+            # Early stopping
+            if epoch_loss < best_loss:
+                best_loss = epoch_loss
+                epochs_no_improve = 0
+                best_model_state = model.state_dict()
+            else:
+                epochs_no_improve += 1
+                if epochs_no_improve >= patience:
+                    logging.info("Early stopping triggered.")
+                    break
+
+        # Load the best model
+        model.load_state_dict(best_model_state)
+
+        # Evaluation
+        model.eval()
+        y_pred = []
+        y_prob = []
+        with torch.no_grad():
+            for batch_features, batch_labels in test_loader:
+                batch_features, batch_labels = batch_features.to(
+                    device
+                ), batch_labels.to(device)
+                outputs = model(batch_features)
+                _, predicted = torch.max(outputs.data, 1)
+                y_pred.extend(predicted.cpu().numpy())
+                y_prob.extend(F.softmax(outputs, dim=1).cpu().numpy())
+
+        y_test = y_test_tensor.cpu().numpy()
+        y_pred = np.array(y_pred)
+        y_prob = np.array(y_prob)
 
         # Compute metrics
+        print("Computing metrics...")
         metrics = self.compute_metrics(y_test, y_pred, y_prob, classes, class_labels)
+
+        # Cross-validation scores
+        print("Computing cross-validation scores...")
         cv_scores = cross_val_score(
-            best_model, X_train, y_train, cv=self.config.cv_folds
+            LogisticRegression(
+                random_state=self.config.random_state, max_iter=self.config.max_iter
+            ),
+            X_train,
+            y_train,
+            cv=self.config.cv_folds,
         )
 
-        # Get feature importance
+        # Get feature importance (coefficients)
         if n_classes == 2:
-            coefficients = [best_model.coef_[0].tolist()]
+            coefficients = [model.weight[0].cpu().detach().numpy().tolist()]
         else:
-            coefficients = [coef.tolist() for coef in best_model.estimators_[0].coef_]
+            coefficients = [
+                model.weight[i].cpu().detach().numpy().tolist()
+                for i in range(n_classes)
+            ]
 
-        results = {
-            "model": best_model,
-            "best_params": grid_search.best_params_,
+        # Return results
+        return {
+            "model": model,
+            "accuracy": metrics["accuracy"],
+            "classes": classes,
+            "class_labels": class_labels,
+            "n_classes": n_classes,
+            "metrics": metrics,
             "cv_scores": {
                 "mean": float(cv_scores.mean()),
                 "std": float(cv_scores.std()),
                 "scores": cv_scores.tolist(),
             },
-            "metrics": metrics,
             "feature_importance": {"coefficients": coefficients},
-            "n_classes": n_classes,
-            "classes": class_labels.tolist(),
             "label_encoder": self.label_encoder,
             "hidden": hidden,
         }
-
-        logging.info(f"Linear Probe Best Accuracy: {metrics['accuracy']:.4f}")
-        return results
 
     def train_decision_tree(self, df, hidden=True) -> Dict[str, Any]:
         """Train an optimized decision tree classifier."""
@@ -281,6 +357,134 @@ class ModelTrainer:
         logging.info(f"Decision Tree Best Accuracy: {metrics['accuracy']:.4f}")
         return results
 
+    def cluster_and_save_embeddings(
+        self,
+        npz,
+        output_dir,
+        scaling_method="standard",  # 'standard' or 'minmax'
+    ):
+        """Perform UMAP and PCA on features and hidden states with feature-wise normalization and save embeddings."""
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Extract data from npz
+        features = npz["features"]
+        labels = npz["label"]
+        hidden_states = npz["hidden_states"]
+
+        # Compute statistics on features (for logging purposes)
+        avg = np.mean(features)
+        min_ = np.min(features)
+        max_ = np.max(features)
+        med = np.median(features)
+        std = np.std(features)
+
+        logging.info(f"avg: {avg}")
+        logging.info(f"min: {min_}")
+        logging.info(f"max: {max_}")
+        logging.info(f"med: {med}")
+        logging.info(f"std: {std}")
+
+        # Feature-wise normalization
+        if scaling_method == "standard":
+            scaler = StandardScaler()  # Standardize each feature to mean 0, variance 1
+        elif scaling_method == "minmax":
+            scaler = MinMaxScaler()  # Scale each feature to range [0, 1]
+        else:
+            raise ValueError("Invalid scaling method. Choose 'standard' or 'minmax'.")
+
+        features_scaled = scaler.fit_transform(features)
+        hidden_states_scaled = scaler.fit_transform(hidden_states)
+
+        # Dimensionality reduction using UMAP
+        reducer = umap.UMAP(n_components=2, random_state=self.config.random_state)
+
+        # Apply UMAP to scaled features and hidden states
+        umap_features = reducer.fit_transform(features_scaled)
+        umap_hidden_states = reducer.fit_transform(hidden_states_scaled)
+
+        # Dimensionality reduction using PCA
+        pca_features = PCA(n_components=2).fit_transform(features_scaled)
+        pca_hidden_states = PCA(n_components=2).fit_transform(hidden_states_scaled)
+
+        # Generate and save UMAP plots for features colored by true labels
+        plt.figure(figsize=(8, 6))
+        plt.scatter(
+            umap_features[:, 0],
+            umap_features[:, 1],
+            c=labels,
+            cmap="viridis",
+            s=10,
+            alpha=0.7,
+        )
+        plt.title("UMAP on Features (Colored by True Labels)")
+        plt.colorbar(label="True Label")
+        plot_path_umap_features = output_dir / "umap_features_true_labels.png"
+        plt.savefig(plot_path_umap_features)
+        plt.close()
+
+        # Generate and save UMAP plots for hidden states colored by true labels
+        plt.figure(figsize=(8, 6))
+        plt.scatter(
+            umap_hidden_states[:, 0],
+            umap_hidden_states[:, 1],
+            c=labels,
+            cmap="viridis",
+            s=10,
+            alpha=0.7,
+        )
+        plt.title("UMAP on Hidden States (Colored by True Labels)")
+        plt.colorbar(label="True Label")
+        plot_path_umap_hidden_states = output_dir / "umap_hidden_states_true_labels.png"
+        plt.savefig(plot_path_umap_hidden_states)
+        plt.close()
+
+        # Generate and save PCA plots for features colored by true labels
+        plt.figure(figsize=(8, 6))
+        plt.scatter(
+            pca_features[:, 0],
+            pca_features[:, 1],
+            c=labels,
+            cmap="viridis",
+            s=10,
+            alpha=0.7,
+        )
+        plt.title("PCA on Features (Colored by True Labels)")
+        plt.colorbar(label="True Label")
+        plot_path_pca_features = output_dir / "pca_features_true_labels.png"
+        plt.savefig(plot_path_pca_features)
+        plt.close()
+
+        # Generate and save PCA plots for hidden states colored by true labels
+        plt.figure(figsize=(8, 6))
+        plt.scatter(
+            pca_hidden_states[:, 0],
+            pca_hidden_states[:, 1],
+            c=labels,
+            cmap="viridis",
+            s=10,
+            alpha=0.7,
+        )
+        plt.title("PCA on Hidden States (Colored by True Labels)")
+        plt.colorbar(label="True Label")
+        plot_path_pca_hidden_states = output_dir / "pca_hidden_states_true_labels.png"
+        plt.savefig(plot_path_pca_hidden_states)
+        plt.close()
+
+        logging.info(f"Saved UMAP and PCA plots colored by true labels to {output_dir}")
+
+        # save embeddings
+        embeddings_path = output_dir / "embeddings_umap_pca.npz"
+        np.savez(
+            embeddings_path,
+            umap_features=umap_features,
+            pca_features=pca_features,
+            umap_hidden_states=umap_hidden_states,
+            pca_hidden_states=pca_hidden_states,
+            labels=labels,
+        )
+        logging.info(f"Saved UMAP and PCA embeddings to {embeddings_path}")
+
     def save_results(
         self,
         results: Dict[str, Any],
@@ -291,7 +495,14 @@ class ModelTrainer:
         hidden: bool = True,
     ):
         """Save model results and artifacts."""
-        output_dir = Path(output_dir)
+
+        # Create a timestamp for unique directory
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Append timestamp to the output directory
+        output_dir = (
+            Path(output_dir) / model_name / f"layer_{layer}" / model_type / timestamp
+        )
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Save model and label encoder together
@@ -307,6 +518,10 @@ class ModelTrainer:
         results_copy.pop("model")
         results_copy.pop("label_encoder")
 
+        # Final check to convert -> serializable
+        results_copy = convert_to_serializable(results_copy)
+
+        # Save metrics in JSON format
         metrics_path = output_dir / f"{model_type}_{hidden}_metrics.json"
         with open(metrics_path, "w") as f:
             json.dump(results_copy, f, indent=2)

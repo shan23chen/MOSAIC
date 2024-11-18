@@ -295,7 +295,11 @@ def main():
                 hidden=False,
             )
 
-            logging.info("Processing and classification completed successfully")
+            print("===== Performing Clustering =====")
+            trainer.cluster_and_save_embeddings(features, layer_save_dir)
+            logging.info(
+                "Processing, classification and clustering completed successfully"
+            )
 
             # Use the explanation path in your dashboard preparation
             if explanation_path and explanation_path.exists():
