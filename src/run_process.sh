@@ -57,7 +57,7 @@ run_classification() {
 
 # Process each dataset for Gemma 1 2B
 MODEL_NAME="google/gemma-2b"
-LAYERS="6,12,17"
+LAYERS="6"
 for width in "16k"; do
     for dataset in "sorry-bench/sorry-bench-202406:train" "Anthropic/election_questions:test" \
                    "textdetox/multilingual_toxicity_dataset:en" "AIM-Harvard/reject_prompts:train" \

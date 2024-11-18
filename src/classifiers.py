@@ -15,6 +15,7 @@ from sklearn.metrics import (
     classification_report,
     roc_auc_score,
 )
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import logging
@@ -34,6 +35,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from sklearn.preprocessing import label_binarize
+from utils import convert_to_serializable
 
 
 @dataclass
@@ -493,7 +495,14 @@ class ModelTrainer:
         hidden: bool = True,
     ):
         """Save model results and artifacts."""
-        output_dir = Path(output_dir)
+
+        # Create a timestamp for unique directory
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Append timestamp to the output directory
+        output_dir = (
+            Path(output_dir) / model_name / f"layer_{layer}" / model_type / timestamp
+        )
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Save model and label encoder together
@@ -509,6 +518,10 @@ class ModelTrainer:
         results_copy.pop("model")
         results_copy.pop("label_encoder")
 
+        # Final check to convert -> serializable
+        results_copy = convert_to_serializable(results_copy)
+
+        # Save metrics in JSON format
         metrics_path = output_dir / f"{model_type}_{hidden}_metrics.json"
         with open(metrics_path, "w") as f:
             json.dump(results_copy, f, indent=2)

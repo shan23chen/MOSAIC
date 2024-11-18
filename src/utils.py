@@ -1,6 +1,8 @@
 import os
 import logging
 import sys
+import numpy as np
+from datetime import datetime
 
 
 def sanitize_path(path_str):
@@ -46,6 +48,16 @@ def get_save_directory(
     return save_dir
 
 
+def convert_to_serializable(obj):
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_to_serializable(value) for key, value in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [convert_to_serializable(item) for item in obj]
+    return obj
+
+
 def setup_logging(save_dir):
     os.makedirs(save_dir, exist_ok=True)
     log_file = os.path.join(save_dir, "processing.log")
@@ -67,13 +79,17 @@ def get_dashboard_directory(base_dir, model_name, dataset_name, layer, width):
     safe_dataset_name = sanitize_path(dataset_name)
     safe_width = sanitize_path(width)
 
-    # Create path: base_dir/model_name/dataset_name/layer_{layer}
+    # Create a timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Create path: base_dir/model_name/dataset_name/layer_{layer}/timestamp
     save_dir = os.path.join(
         base_dir,
         safe_model_name,
         safe_dataset_name,
         f"layer_{layer}",
         safe_width,
+        timestamp,
     )
 
     return save_dir
