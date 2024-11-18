@@ -214,13 +214,85 @@ def optimized_top_n_to_one_hot(array, top_n, progress_dict=None, binary=False, i
         # uint16 0~65535 2^15
         return result.astype(np.uint16)
 
+def batch_optimized_top_n_to_one_hot(array, top_n, progress_dict=None, binary=False, int8=False, sub_batch_size=50):
+    """
+    Memory-efficient and fast top-n to one-hot conversion using sparse matrices,
+    processing data in sub-batches to further reduce memory usage.
+    """
+    if array is None:
+        return None
+
+    batch_size, token_length, dim_size = array.shape
+
+    # Initialize the result array with appropriate data type
+    if int8:
+        result_dtype = np.int8
+    elif binary:
+        result_dtype = np.bool_
+    else:
+        result_dtype = np.uint16
+
+    result = np.zeros((batch_size, dim_size), dtype=result_dtype)
+
+    # Calculate the number of sub-batches
+    num_sub_batches = (batch_size + sub_batch_size - 1) // sub_batch_size
+
+    # Initialize progress tracking for sub-batches
+    if progress_dict is not None:
+        progress_dict['sub_batches_total'] = num_sub_batches
+        progress_dict['sub_batches_processed'] = 0
+
+    for sub_batch_idx in range(num_sub_batches):
+        start_idx = sub_batch_idx * sub_batch_size
+        end_idx = min((sub_batch_idx + 1) * sub_batch_size, batch_size)
+        sub_array = array[start_idx:end_idx]
+
+        sub_batch_size_actual = end_idx - start_idx
+
+        # Step 1: Find indices of top_n activations per token for each sample in the sub-batch
+        top_n_indices = np.argpartition(-sub_array, top_n, axis=2)[:, :, :top_n]
+
+        # Step 2: Flatten the indices for efficient processing
+        flattened_indices = top_n_indices.reshape(-1)
+        flattened_batch_indices = np.repeat(np.arange(sub_batch_size_actual), token_length * top_n)
+
+        # Step 3: Use sparse matrix to count occurrences efficiently
+        from scipy.sparse import coo_matrix
+
+        data = np.ones_like(flattened_indices, dtype=np.uint16)
+        row_indices = flattened_batch_indices
+        col_indices = flattened_indices
+
+        # Create a sparse matrix where each occurrence is a 1
+        sparse_counts = coo_matrix(
+            (data, (row_indices, col_indices)),
+            shape=(sub_batch_size_actual, dim_size),
+            dtype=np.uint16
+        ).toarray()
+
+        # Assign the counts to the corresponding positions in the result array
+        result[start_idx:end_idx] = sparse_counts.astype(result_dtype)
+
+        # Clean up variables to free memory
+        del sub_array, top_n_indices, flattened_indices, flattened_batch_indices, data, row_indices, col_indices, sparse_counts
+        gc.collect()
+
+        # Update progress
+        if progress_dict is not None:
+            progress_dict["processed_items"] += sub_batch_size_actual
+            progress_dict['sub_batches_processed'] += 1
+            # Optionally, print or log the progress here
+            print(f"Processed sub-batch {progress_dict['sub_batches_processed']} of {progress_dict['sub_batches_total']}")
+
+    return result
+
 def process_data(
     metadata_df,
     sae,
     cfg_dict,
     last_token=False,
     top_n=5,
-    batch_size=1000,
+    batch_size=500,
     num_workers=10,
 ):
     """Main processing function with detailed progress tracking."""
@@ -387,3 +459,9 @@ def load_features(layer_dir, model_type):
     file_path = input_dir / f"{model_type}_features.npz"
 
     return np.load(file_path, allow_pickle=True)
+
+def features_file_exists(layer_dir, model_type):
+    """Check if the features file exists."""
+    input_dir = Path(layer_dir)
+    file_path = input_dir / f"{model_type}_features.npz"
+    return file_path.exists()

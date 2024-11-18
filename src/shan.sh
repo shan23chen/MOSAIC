@@ -44,18 +44,31 @@ export CUDA_VISIBLE_DEVICES=1  # Use only GPU 0
 #     --tree-depth 5 \
 #     --save-plots
 
+# python step2_dataset_classify.py \
+#     --input-dir ./output_llm_both \
+#     --dashboard-dir ../dashboard_data \
+#     --model-name google/gemma-2-2b \
+#     --dataset-name Anthropic/election_questions \
+#     --model-type llm \
+#     --dataset-split test \
+#     --model-type llm \
+#     --layer 12 \
+#     --sae_location res \
+#     --width 16k \
+#     --test-size 0.2 \
+#     --tree-depth 5 \
+#     --save-plots
+
 python step2_dataset_classify.py \
-    --input-dir ./output_llm_both \
+    --input-dir ./output_vlm_both_new \
     --dashboard-dir ../dashboard_data \
-    --model-name google/gemma-2-2b \
-    --dataset-name Anthropic/election_questions \
-    --model-type llm \
+    --model-name Intel/llava-gemma-2b \
+    --dataset-name renumics/cifar100-enriched \
     --dataset-split test \
-    --model-type llm \
-    --layer 12 \
+    --model-type vlm \
+    --layer 6 \
     --sae_location res \
     --width 16k \
-    --top-n 5 \
     --test-size 0.2 \
     --tree-depth 5 \
     --save-plots
@@ -67,10 +80,23 @@ python step2_dataset_classify.py \
     --dataset-name renumics/cifar100-enriched \
     --dataset-split test \
     --model-type vlm \
-    --layer 6,10,17 \
+    --layer 10 \
     --sae_location res \
     --width 16k \
-    --top-n 5 \
+    --test-size 0.2 \
+    --tree-depth 5 \
+    --save-plots
+
+python step2_dataset_classify.py \
+    --input-dir ./output_vlm_both_new \
+    --dashboard-dir ../dashboard_data \
+    --model-name Intel/llava-gemma-2b \
+    --dataset-name renumics/cifar100-enriched \
+    --dataset-split test \
+    --model-type vlm \
+    --layer 17 \
+    --sae_location res \
+    --width 16k \
     --test-size 0.2 \
     --tree-depth 5 \
     --save-plots
