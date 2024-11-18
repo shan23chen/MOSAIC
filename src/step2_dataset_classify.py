@@ -12,13 +12,12 @@ from sort_load_datasets import (
     process_data,
     save_features,
     load_features,
-    features_file_exists,
 )
 from classifiers import ModelTrainer, TrainingConfig
 from utils_dash import NumpyJSONEncoder, prepare_dashboard_data, get_tree_info
 from models import get_sae_config
 from utils import get_save_directory, setup_logging, get_dashboard_directory
-from sklearn.preprocessing import LabelEncoder
+
 
 # Configure logging
 logging.basicConfig(
@@ -96,7 +95,7 @@ def parse_arguments():
     parser.add_argument(
         "--top-n",
         type=int,
-        default=3,
+        default=5,
         help="Number of top values for feature extraction",
     )
     parser.add_argument("--last-token", action="store_true", help="Use only last token")
@@ -138,9 +137,7 @@ def parse_arguments():
         help="Minimum samples required at leaf node for decision tree",
     )
     parser.add_argument(
-        "--rerun",
-        action="store_true",
-        help="Only rerun the classification pipeline (overwrites existing results)"
+        "--all_tokens", action="store_true", help="Use all tokens for feature extraction"
     )
 
     return parser.parse_args()
@@ -210,31 +207,26 @@ def main():
                 )
                 # TODO: Add explanation path for non-LLM models
 
-            if features_file_exists(layer_save_dir, args.model_type):
-                logging.info("Features already exist, skipping processing")
-                # Reload features
-                features = load_features(layer_save_dir, args.model_type)
-                label_encoder = LabelEncoder()
-            elif args.rerun or not features_file_exists(layer_save_dir, args.model_type): 
-                processed_df = process_data(
-                    metadata_df=metadata_df,
-                    sae=sae,
-                    cfg_dict=cfg_dict,
-                    last_token=args.last_token,
-                    top_n=args.top_n,
-                )
+            processed_df = process_data(
+                metadata_df=metadata_df,
+                sae=sae,
+                cfg_dict=cfg_dict,
+                last_token=args.last_token,
+                top_n=args.top_n,
+            )
 
-                # Save processed features
-                label_encoder = save_features(
-                    df=processed_df,
-                    layer_dir=layer_save_dir,
-                    model_type=args.model_type,
-                )
+            # Save processed features
+            label_encoder = save_features(
+                df=processed_df,
+                layer_dir=layer_save_dir,
+                model_type=args.model_type,
+                top_n=args.top_n,
+                layer=layer,
+                all_tokens=args.all_tokens,
+            )
 
-                del processed_df
-                features = load_features(layer_save_dir, args.model_type)
-            
-            label_encoder.fit_transform(features['label'])
+            del processed_df
+
             # Initialize training configuration
             config = TrainingConfig(
                 test_size=args.test_size,
@@ -243,7 +235,10 @@ def main():
             )
 
             # Initialize model trainer
-            trainer = ModelTrainer(config, label_encoder)            
+            trainer = ModelTrainer(config, label_encoder)
+
+            # Reload features
+            features = load_features(layer_save_dir, args.model_type,args.top_n, layer)
 
             # Train models with enhanced pipeline
             print("===== Training models =====")
@@ -295,11 +290,7 @@ def main():
                 hidden=False,
             )
 
-            print("===== Performing Clustering =====")
-            trainer.cluster_and_save_embeddings(features, layer_save_dir)
-            logging.info(
-                "Processing, classification and clustering completed successfully"
-            )
+            logging.info("Processing and classification completed successfully")
 
             # Use the explanation path in your dashboard preparation
             if explanation_path and explanation_path.exists():

@@ -19,6 +19,7 @@ def get_valid_token(model_name, model_type, hidden_states, all_tokens):
         elif model_name == "google/paligemma-3b-mix-224":
             return hidden_states[:, 0:256, :]
     elif model_type == "llm" and all_tokens:
+        # get all tokens' specific layer's hidden states
         return hidden_states
     else:
         # get only the last token's specific layer's hidden states
