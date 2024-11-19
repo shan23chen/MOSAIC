@@ -137,7 +137,9 @@ def parse_arguments():
         help="Minimum samples required at leaf node for decision tree",
     )
     parser.add_argument(
-        "--all_tokens", action="store_true", help="Use all tokens for feature extraction"
+        "--all_tokens",
+        action="store_true",
+        help="Use all tokens for feature extraction",
     )
 
     return parser.parse_args()
@@ -238,7 +240,7 @@ def main():
             trainer = ModelTrainer(config, label_encoder)
 
             # Reload features
-            features = load_features(layer_save_dir, args.model_type,args.top_n, layer)
+            features = load_features(layer_save_dir, args.model_type, args.top_n, layer)
 
             # Train models with enhanced pipeline
             print("===== Training models =====")
@@ -316,7 +318,7 @@ def main():
                 args=args,
                 layer=layer,
                 tree_info=get_tree_info(sae_tree_results["model"]),
-                hidden=True,
+                hidden=False,
                 feature_mapping=feature_mapping,
                 class_names=label_encoder.classes_,
             )
