@@ -183,7 +183,8 @@ def prepare_inputs(images, texts, tokenizer_or_processor, device, model_type):
         # Flatten the nested list structure
         if isinstance(texts, list):
             # Flatten any nested lists and join with space
-            texts = [" ".join(t) if isinstance(t, list) else str(t) for t in texts]
+            texts = [t[0] if isinstance(t, list) else str(t) for t in texts]
+            
 
         # Ensure all elements are strings
         texts = [str(t) if t is not None else "" for t in texts]
