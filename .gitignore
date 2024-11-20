@@ -11,3 +11,5 @@ sae_llava.egg-info/
 *.zip
 *zip
 .env
+src/outputs
+*.job
