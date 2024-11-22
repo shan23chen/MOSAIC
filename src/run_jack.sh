@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Base input and output directories
-BASE_INPUT_DIR="./outputs"
+BASE_INPUT_DIR="./output_llm"
 BASE_SAVE_DIR="./output_llm"
 DASHBOARD_DIR="../dashboard_data"
 MODEL_TYPE="llm"
@@ -108,21 +108,21 @@ run_classification() {
 declare -A MODEL_LAYERS
 MODEL_LAYERS["google/gemma-2b"]="6,12,17"
 MODEL_LAYERS["google/gemma-2-2b"]="5,12,19"
-MODEL_LAYERS["google/gemma-2-9b"]="9,20,31"
-MODEL_LAYERS["google/gemma-2-9b-it"]="9,20,31"
+# MODEL_LAYERS["google/gemma-2-9b"]="9,20,31"
+# MODEL_LAYERS["google/gemma-2-9b-it"]="9,20,31"
 
 declare -A MODEL_WIDTHS
 MODEL_WIDTHS["google/gemma-2b"]="16k"
 MODEL_WIDTHS["google/gemma-2-2b"]="16k 65k"
-MODEL_WIDTHS["google/gemma-2-9b"]="16k 131k"
-MODEL_WIDTHS["google/gemma-2-9b-it"]="16k 131k"
+# MODEL_WIDTHS["google/gemma-2-9b"]="16k"
+# MODEL_WIDTHS["google/gemma-2-9b-it"]="16k"
 
 # Dataset configurations
 declare -A DATASETS
 DATASETS["sorry-bench/sorry-bench-202406:train"]="turns category"
-DATASETS["Anthropic/election_questions:test"]="question label"
-DATASETS["textdetox/multilingual_toxicity_dataset:en"]="text toxic"
-DATASETS["AIM-Harvard/reject_prompts:train"]="text label"
+# DATASETS["Anthropic/election_questions:test"]="question label"
+# DATASETS["textdetox/multilingual_toxicity_dataset:en"]="text toxic"
+# DATASETS["AIM-Harvard/reject_prompts:train"]="text label"
 DATASETS["jackhhao/jailbreak-classification:test"]="prompt type"
 
 # Process each model, width, and dataset
@@ -140,11 +140,11 @@ for model_name in "${!MODEL_LAYERS[@]}"; do
             mkdir -p ${save_dir}
 
             # Run token extraction
-            run_extraction ${model_name} ${layers} ${width} ${dataset_name} ${dataset_split} ${text_field} ${label_field} ${save_dir}
+            # run_extraction ${model_name} ${layers} ${width} ${dataset_name} ${dataset_split} ${text_field} ${label_field} ${save_dir}
 
             # # Run classification
-            # input_dir="${BASE_INPUT_DIR}/${model_short_name}/width_${width}"
-            # run_classification ${input_dir} ${model_name} ${dataset_name} ${layers} ${width} ${dataset_split}
+            input_dir="${BASE_INPUT_DIR}/${model_short_name}/width_${width}"
+            run_classification ${save_dir} ${model_name} ${dataset_name} ${layers} ${width} ${dataset_split}
         done
     done
 done
