@@ -108,18 +108,18 @@ run_classification() {
 declare -A MODEL_LAYERS
 MODEL_LAYERS["google/gemma-2b"]="6,12,17"
 MODEL_LAYERS["google/gemma-2-2b"]="5,12,19"
-# MODEL_LAYERS["google/gemma-2-9b"]="9,20,31"
-# MODEL_LAYERS["google/gemma-2-9b-it"]="9,20,31"
+MODEL_LAYERS["google/gemma-2-9b"]="9,20,31"
+MODEL_LAYERS["google/gemma-2-9b-it"]="9,20,31"
 
 declare -A MODEL_WIDTHS
 MODEL_WIDTHS["google/gemma-2b"]="16k"
 MODEL_WIDTHS["google/gemma-2-2b"]="16k 65k"
-# MODEL_WIDTHS["google/gemma-2-9b"]="16k"
-# MODEL_WIDTHS["google/gemma-2-9b-it"]="16k"
+MODEL_WIDTHS["google/gemma-2-9b"]="16k"
+MODEL_WIDTHS["google/gemma-2-9b-it"]="16k"
 
 # Dataset configurations
 declare -A DATASETS
-DATASETS["sorry-bench/sorry-bench-202406:train"]="turns category"
+# DATASETS["sorry-bench/sorry-bench-202406:train"]="turns category"
 # DATASETS["Anthropic/election_questions:test"]="question label"
 # DATASETS["textdetox/multilingual_toxicity_dataset:en"]="text toxic"
 # DATASETS["AIM-Harvard/reject_prompts:train"]="text label"

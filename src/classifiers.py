@@ -47,7 +47,7 @@ class TrainingConfig:
     cv_folds: int = 5
     max_iter: int = 5000
     batch_size: int = 128
-    learning_rate: float = 0.001
+    learning_rate: float = 1e-3
     num_epochs: int = 5000
     patience: int = 10
     lr_scheduler_step_size: int = 100  # Period of learning rate decay
@@ -55,7 +55,7 @@ class TrainingConfig:
 
     # Common parameters for both binary and multiclass
     probe_params = {
-        "C": [0.001, 0.01, 0.1, 1.0],
+        "C": [0.0001, 0.001, 0.01, 0.1],
         "penalty": ["l2"],
         "solver": ["lbfgs"],
     }
@@ -136,9 +136,17 @@ class ModelTrainer:
 
         # Prepare data
         X = df["hidden_states"] if hidden else df["features"]
+        y = df["label"]
+
+        # Validate data
+        if not np.isfinite(X).all():
+            logging.warning("Input X contains NaN or infinity. Applying preprocessing.")
+            # Handle NaNs and infinities
+            finite_mask = np.isfinite(X).all(axis=1)
+            X = X[finite_mask]
+            y = y[finite_mask]
 
         # Encode labels
-        y = df["label"]
         classes = np.unique(y)
         class_labels = self.label_encoder.classes_
         n_classes = len(classes)
@@ -297,13 +305,18 @@ class ModelTrainer:
         """Train an optimized decision tree classifier."""
         logging.info("Training decision tree classifier...")
 
-        if hidden:
-            X = df["hidden_states"]
-        else:
-            X = df["features"]
+        # Prepare data
+        X = df["hidden_states"] if hidden else df["features"]
+        y = df["label"]
+
+        # Validate and preprocess data
+        if not np.isfinite(X).all():
+            logging.warning("Input X contains NaN or infinity. Applying preprocessing.")
+            finite_mask = np.isfinite(X).all(axis=1)
+            X = X[finite_mask]
+            y = y[finite_mask]
 
         # Encode labels
-        y = df["label"]
         classes = np.unique(y)
         class_labels = self.label_encoder.classes_
         n_classes = len(classes)
@@ -371,19 +384,6 @@ class ModelTrainer:
         features = npz["features"]
         labels = npz["label"]
         hidden_states = npz["hidden_states"]
-
-        # Compute statistics on features (for logging purposes)
-        avg = np.mean(features)
-        min_ = np.min(features)
-        max_ = np.max(features)
-        med = np.median(features)
-        std = np.std(features)
-
-        logging.info(f"avg: {avg}")
-        logging.info(f"min: {min_}")
-        logging.info(f"max: {max_}")
-        logging.info(f"med: {med}")
-        logging.info(f"std: {std}")
 
         # Feature-wise normalization
         if scaling_method == "standard":
