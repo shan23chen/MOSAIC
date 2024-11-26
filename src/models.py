@@ -227,7 +227,7 @@ def extract_hidden_states(model, inputs, layer, model_type):
     if model_type == "llm":
         outputs = model(**inputs, output_hidden_states=True, return_dict=True)
         hidden_states = outputs.hidden_states
-        print(f"Hidden states shape: {len(hidden_states)}")
+        # print(f"Hidden states shape: {len(hidden_states)}")
         target_act = hidden_states[layer].to(device)
     else:  # For VLM models
         outputs = model.generate(
