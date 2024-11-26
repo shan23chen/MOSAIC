@@ -16,7 +16,12 @@ from sort_load_datasets import (
 from classifiers import ModelTrainer, TrainingConfig
 from utils_dash import NumpyJSONEncoder, prepare_dashboard_data, get_tree_info
 from models import get_sae_config
-from utils import get_save_directory, setup_logging, get_dashboard_directory
+from utils import (
+    get_save_directory,
+    setup_logging,
+    get_dashboard_directory,
+    parse_binarize_value,
+)
 
 
 # Configure logging
@@ -97,6 +102,12 @@ def parse_arguments():
         type=int,
         default=5,
         help="Number of top values for feature extraction",
+    )
+    parser.add_argument(
+        "--binarize-value",
+        default=None,
+        type=str,
+        help="Value to clip features values to (None for no clipping)",
     )
     parser.add_argument("--last-token", action="store_true", help="Use only last token")
     parser.add_argument(
@@ -209,25 +220,37 @@ def main():
                 )
                 # TODO: Add explanation path for non-LLM models
 
-            processed_df = process_data(
-                metadata_df=metadata_df,
-                sae=sae,
-                cfg_dict=cfg_dict,
-                last_token=args.last_token,
-                top_n=args.top_n,
-            )
+            try:
+                features, label_encoder = load_features(
+                    layer_save_dir, args.model_type, args.top_n, layer
+                )
+                logging.info(f"Features loaded from {layer_save_dir}")
+            except FileNotFoundError:
+                logging.info(f"Features not found, processing data")
 
-            # Save processed features
-            label_encoder = save_features(
-                df=processed_df,
-                layer_dir=layer_save_dir,
-                model_type=args.model_type,
-                top_n=args.top_n,
-                layer=layer,
-                all_tokens=args.all_tokens,
-            )
+                processed_df = process_data(
+                    metadata_df=metadata_df,
+                    sae=sae,
+                    cfg_dict=cfg_dict,
+                    last_token=args.last_token,
+                    top_n=args.top_n,
+                )
 
-            del processed_df
+                # Save processed features
+                label_encoder = save_features(
+                    df=processed_df,
+                    layer_dir=layer_save_dir,
+                    model_type=args.model_type,
+                    top_n=args.top_n,
+                    layer=layer,
+                    all_tokens=args.all_tokens,
+                )
+
+                del processed_df
+
+                features, label_encoder = load_features(
+                    layer_save_dir, args.model_type, args.top_n, layer
+                )
 
             # Initialize training configuration
             config = TrainingConfig(
@@ -239,21 +262,28 @@ def main():
             # Initialize model trainer
             trainer = ModelTrainer(config, label_encoder)
 
-            # Reload features
-            features = load_features(layer_save_dir, args.model_type, args.top_n, layer)
+            binarize_value = parse_binarize_value(args.binarize_value)
 
             # Train models with enhanced pipeline
             print("===== Training models =====")
             print("--- Hidden states ---")
             print("Training linear probe on hidden states")
-            hidden_linear_results = trainer.train_linear_probe(features, hidden=True)
+            hidden_linear_results = trainer.train_linear_probe(
+                features, hidden=True, binarize_value=None
+            )
             print("Training decision tree on hidden states")
-            hidden_tree_results = trainer.train_decision_tree(features, hidden=True)
+            hidden_tree_results = trainer.train_decision_tree(
+                features, hidden=True, binarize_value=None
+            )
             print("--- SAE features ---")
             print("Training linear probe on SAE features")
-            sae_linear_results = trainer.train_linear_probe(features, hidden=False)
+            sae_linear_results = trainer.train_linear_probe(
+                features, hidden=False, binarize_value=binarize_value
+            )
             print("Training decision tree on SAE features")
-            sae_tree_results = trainer.train_decision_tree(features, hidden=False)
+            sae_tree_results = trainer.train_decision_tree(
+                features, hidden=False, binarize_value=binarize_value
+            )
 
             # Save results using new save method
             trainer.save_results(

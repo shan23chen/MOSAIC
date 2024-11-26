@@ -170,18 +170,25 @@ def process_batch(batch, sae, cfg_dict, last_token, top_n, device, progress_dict
                     np.array(batch_df["sae_acts"].to_list()), top_n
                 )
                 batch_df["features"] = list(features_array)
+            elif top_n == -1:
+                print(
+                    "=+++++ your sae_acts are same token length, taking max value per index +++++++="
+                )
+                batch_df["features"] = [arr.max(axis=0) for arr in batch_df["sae_acts"]]
             else:
                 print(
                     "=+++++ your sae_acts are same token length, going to matrixify +++++++="
                 )
                 print("=+++++ no max pooling is needed +++++++=")
                 batch_df["features"] = [arr.sum(axis=0) for arr in batch_df["sae_acts"]]
-            # batch_df["features"] = batch_df["sae_acts"].apply(
-            #     lambda x: optimized_top_n_to_one_hot(x, top_n, progress_dict)
-            # )
         else:
             if top_n == 0:
                 batch_df["features"] = [arr.sum(axis=0) for arr in batch_df["sae_acts"]]
+            elif top_n == -1:
+                print(
+                    "=+++++ your sae_acts are different token length, taking max value per index +++++++="
+                )
+                batch_df["features"] = [arr.max(axis=0) for arr in batch_df["sae_acts"]]
             else:
                 print(
                     "=+++++ your sae_acts are different token length, going to loop through +++++++="
@@ -463,6 +470,11 @@ def save_features(df, layer_dir, model_type, top_n, layer, all_tokens=False):
     metadata_file = output_dir / f"{model_type}_metadata.csv"
     df[["sample_id", "label"]].to_csv(metadata_file, index=False)
 
+    # Save label encoder
+    label_encoder_file = output_dir / f"{model_type}_label_encoder.pkl"
+    logging.info(f"Saving label encoder to {label_encoder_file}")
+    torch.save(label_encoder, label_encoder_file)
+
     logging.info(f"Saved features to {output_file}")
     logging.info(f"Saved metadata to {metadata_file}")
 
@@ -475,7 +487,10 @@ def load_features(layer_dir, model_type, top_n, layer):
 
     file_path = input_dir / f"{layer}_{top_n}_{model_type}_features.npz"
 
-    return np.load(file_path, allow_pickle=True)
+    label_encoder_file = input_dir / f"{model_type}_label_encoder.pkl"
+    label_encoder = torch.load(label_encoder_file)
+
+    return np.load(file_path, allow_pickle=True), label_encoder
 
 
 def features_file_exists(layer_dir, model_type):

@@ -11,3 +11,4 @@ sae_llava.egg-info/
 src/run_zip.sh
 .env
 src/outputs/
+*.eval

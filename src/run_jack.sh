@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Base input and output directories
-BASE_INPUT_DIR="./output_llm"
-BASE_SAVE_DIR="./output_llm"
-DASHBOARD_DIR="../dashboard_data"
+BASE_SAVE_DIR="./output/activations"
+BASE_CLASSIFY_DIR="./output/classifications"
+
+BATCH_SIZE=1
 MODEL_TYPE="llm"
 SAE_LOCATION="res"
-TOP_N=0
 TEST_SIZE=0.2
 TREE_DEPTH=5
 ACT_ONLY="True"
@@ -20,10 +20,10 @@ run_extraction() {
     layer=$2
     width=$3
     dataset_name=$4
-    dataset_split=$5
-    text_field=$6
-    label_field=$7
-    save_dir=$8
+    dataset_config_name=$5
+    dataset_split=$6
+    text_field=$7
+    label_field=$8
 
     echo "==============================================="
     echo "Starting token extraction with configuration:"
@@ -42,8 +42,9 @@ run_extraction() {
         --model_type ${MODEL_TYPE} \
         --sae_location ${SAE_LOCATION} \
         --layer ${layer} \
-        --save_dir ${save_dir} \
+        --save_dir ${BASE_SAVE_DIR} \
         --dataset_name ${dataset_name} \
+        --dataset_config_name ${dataset_config_name} \
         --dataset_split ${dataset_split} \
         --text_field ${text_field} \
         --batch_size 2 \
@@ -67,9 +68,12 @@ run_classification() {
     input_dir=$1
     model_name=$2
     dataset_name=$3
-    layers=$4
-    width=$5
-    dataset_split=$6
+    dataset_config_name=$4
+    layers=$5
+    width=$6
+    dataset_split=$7
+    top_n=$8
+    binarize_value=$9
 
     echo "==============================================="
     echo "Starting classification with configuration:"
@@ -78,19 +82,23 @@ run_classification() {
     echo "Width: ${width}"
     echo "Dataset: ${dataset_name}"
     echo "Split: ${dataset_split}"
+    echo "Top N: ${top_n}"
+    echo "Binarize Value: ${binarize_value}"
     echo "==============================================="
 
     python step2_dataset_classify.py \
-        --input-dir ${input_dir} \
-        --dashboard-dir ${DASHBOARD_DIR} \
+        --input-dir ${BASE_SAVE_DIR} \
+        --dashboard-dir ${BASE_CLASSIFY_DIR} \
         --model-name ${model_name} \
         --dataset-name ${dataset_name} \
+        --dataset-config-name ${dataset_config_name} \
         --model-type ${MODEL_TYPE} \
         --dataset-split ${dataset_split} \
         --layer ${layers} \
         --sae_location ${SAE_LOCATION} \
         --width ${width} \
-        --top-n ${TOP_N} \
+        --top-n ${top_n} \
+        --binarize-value ${binarize_value} \
         --test-size ${TEST_SIZE} \
         --tree-depth ${TREE_DEPTH} \
         --save-plots
@@ -119,11 +127,19 @@ MODEL_WIDTHS["google/gemma-2-9b-it"]="16k"
 
 # Dataset configurations
 declare -A DATASETS
-# DATASETS["sorry-bench/sorry-bench-202406:train"]="turns category"
-# DATASETS["Anthropic/election_questions:test"]="question label"
-# DATASETS["textdetox/multilingual_toxicity_dataset:en"]="text toxic"
-# DATASETS["AIM-Harvard/reject_prompts:train"]="text label"
-DATASETS["jackhhao/jailbreak-classification:test"]="prompt type"
+# DATASETS["sorry-bench/sorry-bench-202406:train:None"]="turns category"
+# DATASETS["Anthropic/election_questions:test:None"]="question label"
+# DATASETS["textdetox/multilingual_toxicity_dataset:en:None"]="text toxic"
+# DATASETS["AIM-Harvard/reject_prompts:train:None"]="text label"
+# DATASETS["jackhhao/jailbreak-classification:test:None"]="prompt type"
+DATASETS["cardiffnlp/tweet_sentiment_multilingual:test:english"]="text label"
+DATASETS["cardiffnlp/tweet_sentiment_multilingual:test:spanish"]="text label"
+DATASETS["cardiffnlp/tweet_sentiment_multilingual:test:french"]="text label"
+DATASETS["cardiffnlp/tweet_sentiment_multilingual:test:german"]="text label"
+DATASETS["cardiffnlp/tweet_sentiment_multilingual:test:portuguese"]="text label"
+DATASETS["cardiffnlp/tweet_sentiment_multilingual:test:italian"]="text label"
+DATASETS["cardiffnlp/tweet_sentiment_multilingual:test:arabic"]="text label"
+DATASETS["cardiffnlp/tweet_sentiment_multilingual:test:hindi"]="text label"
 
 # Process each model, width, and dataset
 for model_name in "${!MODEL_LAYERS[@]}"; do
@@ -134,17 +150,21 @@ for model_name in "${!MODEL_LAYERS[@]}"; do
         for dataset in "${!DATASETS[@]}"; do
             dataset_name=$(echo $dataset | cut -d':' -f1)
             dataset_split=$(echo $dataset | cut -d':' -f2)
+            dataset_config_name=$(echo $dataset | cut -d':' -f3)
             text_field=$(echo ${DATASETS[$dataset]} | cut -d' ' -f1)
             label_field=$(echo ${DATASETS[$dataset]} | cut -d' ' -f2)
-            save_dir="${BASE_SAVE_DIR}/${model_short_name}/width_${width}/${dataset_name}_${dataset_split}"
-            mkdir -p ${save_dir}
 
             # Run token extraction
-            # run_extraction ${model_name} ${layers} ${width} ${dataset_name} ${dataset_split} ${text_field} ${label_field} ${save_dir}
-
+            run_extraction ${model_name} ${layers} ${width} ${dataset_name} ${dataset_split} ${dataset_config_name} ${text_field} ${label_field} ${save_dir}
+            
+            
             # # Run classification
-            input_dir="${BASE_INPUT_DIR}/${model_short_name}/width_${width}"
-            run_classification ${save_dir} ${model_name} ${dataset_name} ${layers} ${width} ${dataset_split}
+            for top_n in 0 20 50; do
+                run_classification ${save_dir} ${model_name} ${dataset_name} ${dataset_config_name} ${layers} ${width} ${dataset_split} ${top_n} None
+                run_classification ${save_dir} ${model_name} ${dataset_name} ${dataset_config_name} ${layers} ${width} ${dataset_split} ${top_n} 1.0
+            done
+            # Run classification for top_n=-1 and binarize_value=None
+            run_classification ${save_dir} ${model_name} ${dataset_name} ${dataset_config_name} ${layers} ${width} ${dataset_split} -1 None
         done
     done
 done

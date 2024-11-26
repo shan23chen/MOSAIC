@@ -93,3 +93,24 @@ def get_dashboard_directory(base_dir, model_name, dataset_name, layer, width):
     )
 
     return save_dir
+
+
+def parse_binarize_value(binarize_value_input):
+    if binarize_value_input is None:
+        return None
+    if isinstance(binarize_value_input, str):
+        if binarize_value_input.lower() == "none":
+            return None
+        else:
+            try:
+                return float(binarize_value_input)
+            except ValueError:
+                raise ValueError(
+                    f"Invalid binarize_value: {binarize_value_input}. Must be a float or 'None'."
+                )
+    elif isinstance(binarize_value_input, (int, float)):
+        return float(binarize_value_input)
+    else:
+        raise ValueError(
+            f"Invalid binarize_value type: {type(binarize_value_input)}. Must be a float or 'None'."
+        )

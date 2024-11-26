@@ -76,6 +76,12 @@ class ModelTrainer:
         self.scaler = StandardScaler()
         self.label_encoder = label_encoder
 
+    def binarize_features(self, data: np.ndarray, threshold: float = 1.0) -> np.ndarray:
+        """Binarize features by clipping values based on a threshold."""
+        print(f"Binarizing features with threshold: {threshold}")
+        threshold = float(threshold)
+        return np.where(data > threshold, 1, 0)
+
     def compute_metrics(
         self,
         y_true: np.ndarray,
@@ -130,7 +136,9 @@ class ModelTrainer:
 
         return metrics
 
-    def train_linear_probe(self, df, hidden=True) -> Dict[str, Any]:
+    def train_linear_probe(
+        self, df, hidden=True, binarize_value=None
+    ) -> Dict[str, Any]:
         """Train an optimized linear probe classifier with proper binary/multiclass handling."""
         logging.info("Training linear probe classifier...")
 
@@ -138,13 +146,9 @@ class ModelTrainer:
         X = df["hidden_states"] if hidden else df["features"]
         y = df["label"]
 
-        # Validate data
-        if not np.isfinite(X).all():
-            logging.warning("Input X contains NaN or infinity. Applying preprocessing.")
-            # Handle NaNs and infinities
-            finite_mask = np.isfinite(X).all(axis=1)
-            X = X[finite_mask]
-            y = y[finite_mask]
+        # Apply binarization if required
+        if binarize_value is not None:
+            X = self.binarize_features(X, threshold=binarize_value)
 
         # Encode labels
         classes = np.unique(y)
@@ -263,6 +267,9 @@ class ModelTrainer:
         print("Computing metrics...")
         metrics = self.compute_metrics(y_test, y_pred, y_prob, classes, class_labels)
 
+        # logging best accuracy
+        logging.info(f"Linear Probe Best Accuracy: {metrics['accuracy']:.4f}")
+
         # Cross-validation scores
         print("Computing cross-validation scores...")
         cv_scores = cross_val_score(
@@ -301,7 +308,9 @@ class ModelTrainer:
             "hidden": hidden,
         }
 
-    def train_decision_tree(self, df, hidden=True) -> Dict[str, Any]:
+    def train_decision_tree(
+        self, df, hidden=True, binarize_value=None
+    ) -> Dict[str, Any]:
         """Train an optimized decision tree classifier."""
         logging.info("Training decision tree classifier...")
 
@@ -309,12 +318,25 @@ class ModelTrainer:
         X = df["hidden_states"] if hidden else df["features"]
         y = df["label"]
 
-        # Validate and preprocess data
-        if not np.isfinite(X).all():
-            logging.warning("Input X contains NaN or infinity. Applying preprocessing.")
-            finite_mask = np.isfinite(X).all(axis=1)
-            X = X[finite_mask]
-            y = y[finite_mask]
+        # Convert binarize_value to None if it's a string 'None' or 'none'
+        if isinstance(binarize_value, str) and binarize_value.lower() == "none":
+            binarize_value = None
+
+        # Apply binarization if required
+        if binarize_value is not None:
+            # Ensure binarize_value is a float
+            try:
+                binarize_value = float(binarize_value)
+                logging.debug(f"Binarize value converted to float: {binarize_value}")
+            except ValueError:
+                logging.error(
+                    f"Invalid binarize_value: {binarize_value}. Must be a float or None."
+                )
+                raise ValueError(
+                    f"Invalid binarize_value: {binarize_value}. Must be a float or None."
+                )
+
+            X = self.binarize_features(X, threshold=binarize_value)
 
         # Encode labels
         classes = np.unique(y)

@@ -32,9 +32,10 @@ class EvalConfig:
     split: str
     config: Optional[str]
     input_column: str
+    context_column: Optional[str]
     label_column: str
     id_column: Optional[str]
-    num_samples: int
+    limit: Optional[int]
     system_prompt: str
     eval_type: str
     scorer_name: str
@@ -78,13 +79,18 @@ def parse_arguments():
         "--input-column", type=str, required=True, help="Column name for input text"
     )
     parser.add_argument(
+        "--context-column", type=str, help="Column name for context text"
+    )
+    parser.add_argument(
         "--label-column", type=str, required=True, help="Column name for labels"
     )
     parser.add_argument(
         "--id-column", type=str, default="id", help="Column name for sample IDs"
     )
     parser.add_argument(
-        "--num-samples", type=int, default=100, help="Number of samples to evaluate"
+        "--limit",
+        type=int,
+        help="Number of samples to evaluate",
     )
 
     # Added log directory argument
@@ -151,9 +157,10 @@ def parse_arguments():
         split=args.split,
         config=args.config,
         input_column=args.input_column,
+        context_column=args.context_column,
         label_column=args.label_column,
         id_column=args.id_column,
-        num_samples=args.num_samples,
+        limit=args.limit,
         system_prompt=args.system_prompt,
         eval_type=args.eval_type,
         scorer_name=args.scorer,
@@ -177,13 +184,15 @@ Choices:
 def process_dataset_samples(config: EvalConfig) -> List[Sample]:
     """Load and process dataset samples."""
     dataset = load_dataset(config.dataset, config.config, split=config.split)
-    if config.num_samples:
-        dataset = dataset.select(range(min(config.num_samples, len(dataset))))
+
+    # Check if "id" column is present
+    if config.id_column not in dataset.column_names:
+        # Add "id" column with values as row number
+        dataset = dataset.map(lambda example, idx: {"id": idx}, with_indices=True)
 
     samples = []
     for item in dataset:
         if config.eval_type == "classification":
-            # Format multiple choice question
             choices = (
                 [str(item[col]) for col in config.choice_columns]
                 if config.choice_columns
@@ -194,31 +203,101 @@ def process_dataset_samples(config: EvalConfig) -> List[Sample]:
                     "Choice columns must be specified for classification tasks"
                 )
 
-            question = MC_TEMPLATE.format(
-                question=str(item[config.input_column]),
-                choices="\n".join(
-                    f"{letter}. {text}" for letter, text in zip("ABCD", choices)
-                ),
-            )
+            # add context to question if context column is provided
+            if config.context_column:
+                question = MC_TEMPLATE.format(
+                    question=str(item[config.context_column])
+                    + "\n"
+                    + str(item[config.input_column]),
+                    choices="\n".join(
+                        f"{letter}. {text}" for letter, text in zip("ABCD", choices)
+                    ),
+                )
+            else:
+                question = MC_TEMPLATE.format(
+                    question=str(item[config.input_column]),
+                    choices="\n".join(
+                        f"{letter}. {text}" for letter, text in zip("ABCD", choices)
+                    ),
+                )
 
-            sample = Sample(
-                input=[
-                    ChatMessageSystem(content=config.system_prompt),
-                    ChatMessageUser(content=question),
-                ],
-                target=str(item[config.label_column]),
-                id=str(item.get(config.id_column, "")),
-                choices=choices,
-            )
+            # Check if the model is Gemma
+            if "gemma" in config.model.lower():
+                # For Gemma, include system prompt in the user message
+                if config.context_column:
+                    user_content = f"{config.system_prompt}\n\n{str(item[config.context_column])}\n\n{question}"
+                else:
+                    user_content = f"{config.system_prompt}\n\n{question}"
+                sample = Sample(
+                    input=[ChatMessageUser(content=user_content)],
+                    target=str(item[config.label_column]),
+                    id=str(item.get(config.id_column, "")),
+                    choices=choices,
+                )
+            else:
+                # For other models, use separate system and user messages
+                if config.context_column:
+                    sample = Sample(
+                        input=[
+                            ChatMessageSystem(content=config.system_prompt),
+                            ChatMessageUser(content=str(item[config.context_column])),
+                            ChatMessageUser(content=question),
+                        ],
+                        target=str(item[config.label_column]),
+                        id=str(item.get(config.id_column, "")),
+                        choices=choices,
+                    )
+                else:
+                    sample = Sample(
+                        input=[
+                            ChatMessageSystem(content=config.system_prompt),
+                            ChatMessageUser(content=question),
+                        ],
+                        target=str(item[config.label_column]),
+                        id=str(item.get(config.id_column, "")),
+                        choices=choices,
+                    )
         else:
-            sample = Sample(
-                input=[
-                    ChatMessageSystem(content=config.system_prompt),
-                    ChatMessageUser(content=str(item[config.input_column])),
-                ],
-                target=str(item[config.label_column]),
-                id=str(item.get(config.id_column, "")),
-            )
+            # Similar logic for open-ended questions
+            if "gemma" in config.model.lower():
+                if config.context_column:
+                    user_content = f"{config.system_prompt}\n\n{str(item[config.context_column])}\n\n{str(item[config.input_column])}"
+                else:
+                    user_content = (
+                        f"{config.system_prompt}\n\n{str(item[config.input_column])}"
+                    )
+                # Check if the label_column is "sorry"
+                if config.label_column.lower() == "sorry":
+                    target_label = "Model refuses request"
+                else:
+                    target_label = str(item[config.label_column])
+
+                sample = Sample(
+                    input=[ChatMessageUser(content=user_content)],
+                    target=target_label,
+                    id=str(item.get(config.id_column, "")),
+                )
+            else:
+                if config.context_column:
+                    sample = Sample(
+                        input=[
+                            ChatMessageSystem(content=config.system_prompt),
+                            ChatMessageUser(content=str(item[config.context_column])),
+                            ChatMessageUser(content=str(item[config.input_column])),
+                        ],
+                        target=str(item[config.label_column]),
+                        id=str(item.get(config.id_column, "")),
+                    )
+                else:
+                    sample = Sample(
+                        input=[
+                            ChatMessageSystem(content=config.system_prompt),
+                            ChatMessageUser(content=str(item[config.input_column])),
+                        ],
+                        target=str(item[config.label_column]),
+                        id=str(item.get(config.id_column, "")),
+                    )
+
         samples.append(sample)
 
     return samples
@@ -231,6 +310,7 @@ def evaluate_model(
     label_column: str,
     dataset_name: str,
     split: str,
+    limit: Optional[int] = None,
 ):
     """Create evaluation task."""
     samples = process_dataset_samples(config)
@@ -266,6 +346,7 @@ def main():
             config.split,
         ),
         **{k: v for k, v in model_config.items() if v is not None},
+        limit=config.limit,
     )
 
 
