@@ -32,9 +32,9 @@ run_extraction() {
     echo "Width: ${width}"
     echo "Dataset: ${dataset_name}"
     echo "Split: ${dataset_split}"
+    echo "Name: ${dataset_config_name}"
     echo "Text Field: ${text_field}"
     echo "Label Field: ${label_field}"
-    echo "Save Directory: ${save_dir}"
     echo "==============================================="
 
     python step1_extract_all.py \
@@ -65,15 +65,14 @@ run_extraction() {
 
 # Function to run dataset classification with step2_dataset_classify.py
 run_classification() {
-    input_dir=$1
-    model_name=$2
-    dataset_name=$3
-    dataset_config_name=$4
-    layers=$5
-    width=$6
-    dataset_split=$7
-    top_n=$8
-    binarize_value=$9
+    model_name=$1
+    dataset_name=$2
+    dataset_config_name=$3
+    layers=$4
+    width=$5
+    dataset_split=$6
+    top_n=$7
+    binarize_value=$8
 
     echo "==============================================="
     echo "Starting classification with configuration:"
@@ -82,6 +81,7 @@ run_classification() {
     echo "Width: ${width}"
     echo "Dataset: ${dataset_name}"
     echo "Split: ${dataset_split}"
+    echo "Name: ${dataset_config_name}"
     echo "Top N: ${top_n}"
     echo "Binarize Value: ${binarize_value}"
     echo "==============================================="
@@ -149,22 +149,22 @@ for model_name in "${!MODEL_LAYERS[@]}"; do
     for width in ${MODEL_WIDTHS[$model_name]}; do
         for dataset in "${!DATASETS[@]}"; do
             dataset_name=$(echo $dataset | cut -d':' -f1)
-            dataset_split=$(echo $dataset | cut -d':' -f2)
-            dataset_config_name=$(echo $dataset | cut -d':' -f3)
+            dataset_config_name=$(echo $dataset | cut -d':' -f2)
+            dataset_split=$(echo $dataset | cut -d':' -f3)
             text_field=$(echo ${DATASETS[$dataset]} | cut -d' ' -f1)
             label_field=$(echo ${DATASETS[$dataset]} | cut -d' ' -f2)
 
             # Run token extraction
-            run_extraction ${model_name} ${layers} ${width} ${dataset_name} ${dataset_split} ${dataset_config_name} ${text_field} ${label_field} ${save_dir}
+            run_extraction ${model_name} ${layers} ${width} ${dataset_name} ${dataset_split} ${dataset_config_name} ${text_field} ${label_field}
             
             
-            # # Run classification
-            for top_n in 0 20 50; do
-                run_classification ${save_dir} ${model_name} ${dataset_name} ${dataset_config_name} ${layers} ${width} ${dataset_split} ${top_n} None
-                run_classification ${save_dir} ${model_name} ${dataset_name} ${dataset_config_name} ${layers} ${width} ${dataset_split} ${top_n} 1.0
-            done
-            # Run classification for top_n=-1 and binarize_value=None
-            run_classification ${save_dir} ${model_name} ${dataset_name} ${dataset_config_name} ${layers} ${width} ${dataset_split} -1 None
+        #     # # Run classification
+        #     for top_n in 0 20 50; do
+        #         run_classification ${model_name} ${dataset_name} ${dataset_config_name} ${layers} ${width} ${dataset_split} ${top_n} None
+        #         run_classification ${model_name} ${dataset_name} ${dataset_config_name} ${layers} ${width} ${dataset_split} ${top_n} 1.0
+        #     done
+        #     # Run classification for top_n=-1 and binarize_value=None
+        #     run_classification ${model_name} ${dataset_name} ${dataset_config_name} ${layers} ${width} ${dataset_split} -1 None
         done
     done
 done

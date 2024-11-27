@@ -164,9 +164,9 @@ def get_sae_config(
     explanation_file_path = None
     try:
         feature_lookup = FeatureLookup(
-            config_path="resource/pretrained_saes.yaml", cache_dir="./explanation_cache"
+            config_path="src/resource/pretrained_saes.yaml",
+            cache_dir="./explanation_cache",
         )
-        # ... rest of the explanation handling code ...
     except Exception as e:
         logging.error(f"Error fetching explanations: {str(e)}")
         explanation_file_path = None

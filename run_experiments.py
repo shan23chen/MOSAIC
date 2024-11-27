@@ -3,6 +3,23 @@
 import yaml
 import os
 import subprocess
+import argparse
+
+# Parse command-line arguments
+parser = argparse.ArgumentParser(
+    description="Run extraction and classification experiments."
+)
+parser.add_argument(
+    "--extract-only",
+    action="store_true",
+    help="Run extraction only.",
+)
+parser.add_argument(
+    "--classify-only",
+    action="store_true",
+    help="Run classification only.",
+)
+args = parser.parse_args()
 
 # Load configuration from YAML file
 with open("config.yaml", "r") as f:
@@ -14,7 +31,7 @@ datasets = config["datasets"]
 classification_params = config["classification_params"]
 
 # Set environment variables
-os.environ["CUDA_VISIBLE_DEVICe ES"] = settings["cuda_visible_devices"]
+os.environ["CUDA_VISIBLE_DEVICES"] = settings["cuda_visible_devices"]
 
 # Base directories
 BASE_SAVE_DIR = settings["base_save_dir"]
@@ -165,46 +182,48 @@ def main():
 
         for width in model["widths"]:
             for dataset in datasets:
-                # Run token extraction
-                run_extraction(
-                    model_name,
-                    model_type,
-                    sae_location,
-                    layers,
-                    width,
-                    dataset,
-                    act_only,
-                    batch_size,
-                )
+                if not args.classify_only:
+                    # Run token extraction
+                    run_extraction(
+                        model_name,
+                        model_type,
+                        sae_location,
+                        layers,
+                        width,
+                        dataset,
+                        act_only,
+                        batch_size,
+                    )
 
-                # Run classification with various top_n and binarize_value settings
-                for top_n in classification_params["top_n_values"]:
-                    for binarize_value in classification_params["binarize_values"]:
-                        run_classification(
-                            model_name,
-                            model_type,
-                            sae_location,
-                            layers,
-                            width,
-                            dataset,
-                            top_n,
-                            binarize_value,
-                            test_size,
-                            tree_depth,
-                        )
-                # Run classification for extra_top_n and extra_binarize_value
-                run_classification(
-                    model_name,
-                    model_type,
-                    sae_location,
-                    layers,
-                    width,
-                    dataset,
-                    classification_params["extra_top_n"],
-                    classification_params["extra_binarize_value"],
-                    test_size,
-                    tree_depth,
-                )
+                if not args.extract_only:
+                    # Run classification with various top_n and binarize_value settings
+                    for top_n in classification_params["top_n_values"]:
+                        for binarize_value in classification_params["binarize_values"]:
+                            run_classification(
+                                model_name,
+                                model_type,
+                                sae_location,
+                                layers,
+                                width,
+                                dataset,
+                                top_n,
+                                binarize_value,
+                                test_size,
+                                tree_depth,
+                            )
+                    # Run classification for extra_top_n and extra_binarize_value
+                    run_classification(
+                        model_name,
+                        model_type,
+                        sae_location,
+                        layers,
+                        width,
+                        dataset,
+                        classification_params["extra_top_n"],
+                        classification_params["extra_binarize_value"],
+                        test_size,
+                        tree_depth,
+                    )
 
     print(f"All processes completed at: {subprocess.getoutput('date')}")
 
