@@ -5,8 +5,16 @@ from sklearn.preprocessing import (
     LabelEncoder,
     MinMaxScaler,
 )
-from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
+from sklearn.model_selection import (
+    train_test_split,
+    GridSearchCV,
+    cross_val_score,
+    StratifiedKFold,
+    PredefinedSplit,
+)
+from sklearn.utils.class_weight import compute_class_weight
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import RandomizedSearchCV
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import (
     accuracy_score,
@@ -43,19 +51,22 @@ class TrainingConfig:
     """Configuration for model training."""
 
     test_size: float = 0.2
+    validation_size: float = 0.1  # Proportion of data to use for validation
     random_state: int = 42
     cv_folds: int = 5
-    max_iter: int = 5000
+    max_iter: int = 10000
     batch_size: int = 128
     learning_rate: float = 1e-3
-    num_epochs: int = 5000
-    patience: int = 10
-    lr_scheduler_step_size: int = 100  # Period of learning rate decay
-    lr_scheduler_gamma: float = 0.1  # Multiplicative factor of learning rate decay
+    num_epochs: int = 10000
+    patience: int = 20
+    lr_scheduler_step_size: int = 100
+    lr_scheduler_gamma: float = 0.1
+    weight_decay: float = 1e-5
+    n_iter_search: int = 20
 
     # Common parameters for both binary and multiclass
     probe_params = {
-        "C": [0.0001, 0.001, 0.01, 0.1],
+        "C": [0.0001, 0.001, 0.01, 0.1, 1, 10],
         "penalty": ["l2"],
         "solver": ["lbfgs"],
     }
@@ -158,8 +169,8 @@ class ModelTrainer:
         logging.info(f"Number of classes: {n_classes}")
         logging.info(f"Classes: {class_labels}")
 
-        # Split data
-        X_train, X_test, y_train, y_test = train_test_split(
+        # Split data into training and test sets
+        X_temp, X_test, y_temp, y_test = train_test_split(
             X,
             y,
             test_size=self.config.test_size,
@@ -167,30 +178,55 @@ class ModelTrainer:
             stratify=y,
         )
 
+        # Further split training data into training and validation sets
+        validation_size = self.config.validation_size
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_temp,
+            y_temp,
+            test_size=validation_size / (1 - self.config.test_size),
+            random_state=self.config.random_state,
+            stratify=y_temp,
+        )
+
+        # Device configuration
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # Compute class weights
+        class_weights = compute_class_weights(y_train, classes)
+        class_weights_tensor = torch.tensor(class_weights, dtype=torch.float32).to(
+            device
+        )
+
         # Convert data to PyTorch tensors
         X_train_tensor = torch.tensor(X_train.astype("float32"))
         y_train_tensor = torch.tensor(y_train.astype("int64"))
+        X_val_tensor = torch.tensor(X_val.astype("float32"))
+        y_val_tensor = torch.tensor(y_val.astype("int64"))
         X_test_tensor = torch.tensor(X_test.astype("float32"))
         y_test_tensor = torch.tensor(y_test.astype("int64"))
 
         # Create datasets and data loaders
         train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
+        val_dataset = TensorDataset(X_val_tensor, y_val_tensor)
         test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
+
         train_loader = DataLoader(
             train_dataset, batch_size=self.config.batch_size, shuffle=True
         )
+        val_loader = DataLoader(val_dataset, batch_size=self.config.batch_size)
         test_loader = DataLoader(test_dataset, batch_size=self.config.batch_size)
-
-        # Device configuration
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Define the linear probe model
         input_dim = X_train.shape[1]
         model = nn.Linear(input_dim, n_classes).to(device)
 
         # Loss function and optimizer
-        criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=self.config.learning_rate)
+        criterion = nn.CrossEntropyLoss(weight=class_weights_tensor)
+        optimizer = optim.Adam(
+            model.parameters(),
+            lr=self.config.learning_rate,
+            weight_decay=self.config.weight_decay,
+        )
 
         # Learning rate scheduler
         scheduler = optim.lr_scheduler.StepLR(
@@ -202,11 +238,14 @@ class ModelTrainer:
         # Training loop with early stopping
         num_epochs = self.config.num_epochs
         patience = self.config.patience
-        best_loss = float("inf")
+        best_val_loss = float("inf")
         epochs_no_improve = 0
-        model.train()
+        best_model_state = None
+
         for epoch in range(num_epochs):
-            epoch_loss = 0.0
+            # Training phase
+            model.train()
+            train_epoch_loss = 0.0
             for batch_features, batch_labels in train_loader:
                 batch_features, batch_labels = batch_features.to(
                     device
@@ -221,19 +260,38 @@ class ModelTrainer:
                 loss.backward()
                 optimizer.step()
 
-                epoch_loss += loss.item()
+                train_epoch_loss += loss.item()
+
+            # Validation phase
+            model.eval()
+            val_epoch_loss = 0.0
+            with torch.no_grad():
+                for batch_features, batch_labels in val_loader:
+                    batch_features, batch_labels = batch_features.to(
+                        device
+                    ), batch_labels.to(device)
+
+                    outputs = model(batch_features)
+                    loss = criterion(outputs, batch_labels)
+                    val_epoch_loss += loss.item()
+
+            # Average losses
+            train_epoch_loss /= len(train_loader)
+            val_epoch_loss /= len(val_loader)
 
             # Step the learning rate scheduler
             scheduler.step()
 
-            epoch_loss /= len(train_loader)
             logging.info(
-                f"Epoch [{epoch+1}/{num_epochs}], Loss: {epoch_loss:.4f}, Learning Rate: {scheduler.get_last_lr()[0]:.6f}"
+                f"Epoch [{epoch+1}/{num_epochs}], "
+                f"Train Loss: {train_epoch_loss:.4f}, "
+                f"Val Loss: {val_epoch_loss:.4f}, "
+                f"Learning Rate: {scheduler.get_last_lr()[0]:.6f}"
             )
 
-            # Early stopping
-            if epoch_loss < best_loss:
-                best_loss = epoch_loss
+            # Early stopping based on validation loss
+            if val_epoch_loss < best_val_loss:
+                best_val_loss = val_epoch_loss
                 epochs_no_improve = 0
                 best_model_state = model.state_dict()
             else:
@@ -243,9 +301,12 @@ class ModelTrainer:
                     break
 
         # Load the best model
-        model.load_state_dict(best_model_state)
+        if best_model_state is not None:
+            model.load_state_dict(best_model_state)
+        else:
+            logging.warning("No improvement during training.")
 
-        # Evaluation
+        # Evaluation on test set
         model.eval()
         y_pred = []
         y_prob = []
@@ -272,13 +333,20 @@ class ModelTrainer:
 
         # Cross-validation scores
         print("Computing cross-validation scores...")
+        stratified_kfold = StratifiedKFold(
+            n_splits=self.config.cv_folds,
+            shuffle=True,
+            random_state=self.config.random_state,
+        )
         cv_scores = cross_val_score(
             LogisticRegression(
-                random_state=self.config.random_state, max_iter=self.config.max_iter
+                random_state=self.config.random_state,
+                max_iter=self.config.max_iter,
+                class_weight="balanced",
             ),
             X_train,
             y_train,
-            cv=self.config.cv_folds,
+            cv=stratified_kfold,
         )
 
         # Get feature importance (coefficients)
@@ -311,7 +379,7 @@ class ModelTrainer:
     def train_decision_tree(
         self, df, hidden=True, binarize_value=None
     ) -> Dict[str, Any]:
-        """Train an optimized decision tree classifier."""
+        """Train an optimized decision tree classifier with validation set using GridSearchCV."""
         logging.info("Training decision tree classifier...")
 
         # Prepare data
@@ -343,7 +411,8 @@ class ModelTrainer:
         class_labels = self.label_encoder.classes_
         n_classes = len(classes)
 
-        X_train, X_test, y_train, y_test = train_test_split(
+        # Split data into training, validation, and test sets
+        X_temp, X_test, y_temp, y_test = train_test_split(
             X,
             y,
             test_size=self.config.test_size,
@@ -351,29 +420,74 @@ class ModelTrainer:
             stratify=y,
         )
 
-        clf = DecisionTreeClassifier(random_state=self.config.random_state)
+        validation_size = self.config.validation_size
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_temp,
+            y_temp,
+            test_size=validation_size / (1 - self.config.test_size),
+            random_state=self.config.random_state,
+            stratify=y_temp,
+        )
+
+        # Combine training and validation data
+        X_train_val = np.concatenate([X_train, X_val], axis=0)
+        y_train_val = np.concatenate([y_train, y_val], axis=0)
+
+        # Create a PredefinedSplit object
+        test_fold = np.concatenate(
+            [
+                np.full(X_train.shape[0], -1),  # Training samples
+                np.zeros(X_val.shape[0]),  # Validation samples
+            ]
+        )
+        ps = PredefinedSplit(test_fold)
+
+        # Compute class weights
+        class_weights = compute_class_weights(y_train, classes)
+        class_weight_dict = dict(zip(classes, class_weights))
+
+        # Initialize classifier
+        clf = DecisionTreeClassifier(
+            random_state=self.config.random_state,
+            class_weight=class_weight_dict,
+        )
+
+        # Use GridSearchCV with the predefined split
         grid_search = GridSearchCV(
             clf,
-            self.config.tree_params,
-            cv=self.config.cv_folds,
+            param_grid=self.config.tree_params,
+            cv=ps,
             scoring="accuracy",
             n_jobs=-1,
         )
 
-        grid_search.fit(X_train, y_train)
+        grid_search.fit(X_train_val, y_train_val)
 
         best_model = grid_search.best_estimator_
-        y_pred = best_model.predict(X_test)
-        y_prob = best_model.predict_proba(X_test)
+        best_val_score = grid_search.best_score_
+        best_params = grid_search.best_params_
 
-        metrics = self.compute_metrics(y_test, y_pred, y_prob, classes, class_labels)
+        # Evaluate the best model on the test set
+        y_test_pred = best_model.predict(X_test)
+        y_test_prob = best_model.predict_proba(X_test)
+
+        metrics = self.compute_metrics(
+            y_test, y_test_pred, y_test_prob, classes, class_labels
+        )
+
+        # Cross-validation scores on combined training and validation set
+        stratified_kfold = StratifiedKFold(
+            n_splits=self.config.cv_folds,
+            shuffle=True,
+            random_state=self.config.random_state,
+        )
         cv_scores = cross_val_score(
-            best_model, X_train, y_train, cv=self.config.cv_folds
+            best_model, X_train_val, y_train_val, cv=stratified_kfold
         )
 
         results = {
             "model": best_model,
-            "best_params": grid_search.best_params_,
+            "best_params": best_params,
             "cv_scores": {
                 "mean": float(cv_scores.mean()),
                 "std": float(cv_scores.std()),
@@ -389,7 +503,8 @@ class ModelTrainer:
             "hidden": hidden,
         }
 
-        logging.info(f"Decision Tree Best Accuracy: {metrics['accuracy']:.4f}")
+        logging.info(f"Decision Tree Best Validation Accuracy: {best_val_score:.4f}")
+        logging.info(f"Decision Tree Test Accuracy: {metrics['accuracy']:.4f}")
         return results
 
     def cluster_and_save_embeddings(
@@ -549,6 +664,12 @@ class ModelTrainer:
             json.dump(results_copy, f, indent=2)
 
         logging.info(f"Saved model and metrics to {output_dir}")
+
+
+def compute_class_weights(y: np.ndarray, classes: np.ndarray) -> np.ndarray:
+    """Compute class weights inversely proportional to class frequencies."""
+    class_weights = compute_class_weight(class_weight="balanced", classes=classes, y=y)
+    return class_weights
 
 
 def run_training_pipeline(

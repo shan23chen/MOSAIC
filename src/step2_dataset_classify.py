@@ -65,7 +65,7 @@ def parse_arguments():
         help="Model type (vlm or llm)",
     )
     parser.add_argument(
-        "--sae_location", type=str, help="SAE location e.g. mlp or res", required=True
+        "--sae-location", type=str, help="SAE location e.g. mlp or res", required=True
     )
     parser.add_argument(
         "--layer",
@@ -86,7 +86,7 @@ def parse_arguments():
         required=True,
     )
     parser.add_argument(
-        "--dataset_config_name",
+        "--dataset-config-name",
         type=str,
         help="Dataset config name (e.g., subject)",
         default=None,
@@ -129,26 +129,26 @@ def parse_arguments():
         "--cv_folds", type=int, default=5, help="Number of cross-validation folds"
     )
     parser.add_argument(
-        "--linear_c_values",
+        "--linear-c-values",
         type=float,
         nargs="+",
         default=[0.1, 1.0, 10.0],
         help="C values for linear probe grid search",
     )
     parser.add_argument(
-        "--tree_min_samples_split",
+        "--tree-min-samples-split",
         type=int,
         default=2,
         help="Minimum samples required to split for decision tree",
     )
     parser.add_argument(
-        "--tree_min_samples_leaf",
+        "--tree-min-samples-leaf",
         type=int,
         default=1,
         help="Minimum samples required at leaf node for decision tree",
     )
     parser.add_argument(
-        "--all_tokens",
+        "--all-tokens",
         action="store_true",
         help="Use all tokens for feature extraction",
     )

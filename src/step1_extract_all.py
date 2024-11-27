@@ -33,17 +33,17 @@ def parse_args():
     )
     # Existing arguments
     parser.add_argument(
-        "--model_name", type=str, help="Name or path of the model to use", required=True
+        "--model-name", type=str, help="Name or path of the model to use", required=True
     )
     parser.add_argument(
-        "--model_type",
+        "--model-type",
         type=str,
         choices=["vlm", "llm"],
         help="Type of the model (VLM or LLM)",
         required=True,
     )
     parser.add_argument(
-        "--sae_location",
+        "--sae-location",
         type=str,
         default="res",
         choices=["res", "mlp", "att"],
@@ -57,58 +57,58 @@ def parse_args():
         required=True,
     )
     parser.add_argument(
-        "--batch_size", type=int, default=32, help="Batch size for dataset processing"
+        "--batch-size", type=int, default=32, help="Batch size for dataset processing"
     )
     parser.add_argument(
-        "--save_dir",
+        "--save-dir",
         type=str,
         default="./npz_files",
         help="Directory to save npz files",
     )
     parser.add_argument(
-        "--dataset_name",
+        "--dataset-name",
         type=str,
         help="Name or path of the dataset to use",
         required=True,
     )
     parser.add_argument(
-        "--dataset_config_name",
+        "--dataset-config-name",
         type=str,
         default=None,
         help="Dataset configuration name",
     )
     parser.add_argument(
-        "--dataset_split",
+        "--dataset-split",
         type=str,
         default="train",
         help="Which split of the dataset to use (train/validation/test)",
     )
     parser.add_argument(
-        "--text_field",
+        "--text-field",
         type=str,
         default=None,
         help="Field name for text data in the dataset",
     )
     parser.add_argument(
-        "--image_field",
+        "--image-field",
         type=str,
         default=None,
         help="Field name for image data in the dataset",
     )
     parser.add_argument(
-        "--label_field",
+        "--label-field",
         type=str,
         default="label",
         help="Field name for label data in the dataset",
     )
     parser.add_argument(
-        "--act_only",
+        "--act-only",
         type=str,
         default="True",
         help="storing activation only or storing sae and activations",
     )
     parser.add_argument(
-        "--max_batches",
+        "--max-batches",
         type=int,
         default=None,
         help="Maximum number of batches to process (for debug/testing)",
@@ -120,7 +120,7 @@ def parse_args():
         help="Width of the SAE encoder (e.g. 16k, 524k, 1m)",
     )
     parser.add_argument(
-        "--all_tokens",
+        "--all-tokens",
         type=str,
         default="False",
         help="Retrieve all tokens or only the last token, default getting all image tokens for VLM and last token for LLM",
