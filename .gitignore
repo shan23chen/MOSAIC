@@ -12,4 +12,4 @@ src/run_zip.sh
 .env
 src/outputs/
 *.eval
-output/
+output/activations/
