@@ -5,8 +5,9 @@ from dash.dependencies import Input, Output
 from typing import Dict, Any
 
 
+# Updated Model Info Banner Component
 def create_model_info_banner(data: Dict[str, Any]) -> html.Div:
-    """Create a compact model info banner."""
+    """Create a compact model info banner with additional fields."""
     if not data or not data.get("metadata", {}).get("model"):
         return html.Div()
 
@@ -29,6 +30,16 @@ def create_model_info_banner(data: Dict[str, Any]) -> html.Div:
                                 html.Span(" | ", className="text-muted mx-2"),
                                 html.Span(
                                     data["metadata"]["model"]["type"],
+                                    className="text-muted",
+                                ),
+                                html.Span(" | ", className="text-muted mx-2"),
+                                html.Span(
+                                    f"Top N: {data['metadata']['args'].get('top_n', 'N/A')}",
+                                    className="text-muted",
+                                ),
+                                html.Span(" | ", className="text-muted mx-2"),
+                                html.Span(
+                                    f"Binarize: {data['metadata']['args'].get('binarize_value', 'N/A')}",
                                     className="text-muted",
                                 ),
                             ]
