@@ -13,3 +13,4 @@ sae_llava.egg-info/
 .env
 src/outputs
 *.job
+src/output/
