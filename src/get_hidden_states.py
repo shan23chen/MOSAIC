@@ -8,6 +8,8 @@ import logging
 from tqdm import tqdm
 import math
 import gc
+from datasets import concatenate_datasets
+import os
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 # retrieve_all_tokens = True
@@ -19,6 +21,7 @@ def get_valid_token(model_name, model_type, hidden_states, all_tokens):
         elif model_name == "google/paligemma-3b-mix-224":
             return hidden_states[:, 0:256, :]
     elif model_type == "llm" and all_tokens:
+        # get all tokens' specific layer's hidden states
         return hidden_states
     else:
         # get only the last token's specific layer's hidden states
@@ -56,9 +59,61 @@ def get_hidden_states(
     logging.info(
         f"Loading dataset: {dataset_name}, config: {dataset_config_name}, split: {dataset_split}"
     )
-    dataset = load_dataset(dataset_name, name=dataset_config_name, split=dataset_split)
 
-    # Include unique IDs if available, else use indices
+    if dataset_name.split('/')[0] == 'local':
+        # Extract the path after 'local/'
+        path = dataset_name.split('local/')[1]+'.csv'
+        
+        # If path doesn't start with '/', make it absolute
+        if not path.startswith('/'):
+            path = '/' + path
+            
+        logging.info(f"Loading dataset from path: {path}")
+        
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"CSV file not found at: {path}")
+        
+        dataset = load_dataset("csv", data_files=path)["train"]
+        print(dataset)
+        
+
+        
+        # Initialize data files dictionary
+        # data_files = {}
+        # split_mapping = {
+        #     'train': 'train.csv',
+        #     'dev': 'dev.csv', 
+        #     'test': 'test.csv'
+        # }
+        
+        # # Check which files exist and load them
+        # for split, filename in split_mapping.items():
+        #     file_path = os.path.join(path, filename)
+        #     if os.path.exists(file_path):
+        #         data_files[split] = file_path
+        
+        # if not data_files:
+        #     raise ValueError(f"No CSV files found in {path}")
+            
+        # # Load dataset from existing files
+        # dataset_dict = load_dataset('csv', data_files=data_files)
+        
+        # # Add split column to each subset and concatenate
+        # processed_datasets = []
+        
+        # for split_name, split_dataset in dataset_dict.items():
+        #     # Add split column
+        #     split_dataset = split_dataset.add_column(
+        #         "split", 
+        #         [split_name] * len(split_dataset)
+        #     )
+        #     processed_datasets.append(split_dataset)
+        
+        # # Concatenate all splits into one dataset
+        # dataset = concatenate_datasets(processed_datasets)
+    else:
+        dataset = load_dataset(dataset_name, name=dataset_config_name, split=dataset_split)
+
     if "id" not in dataset.column_names:
         dataset = dataset.map(lambda example, idx: {"id": idx}, with_indices=True)
 

@@ -76,6 +76,9 @@ def prepare_dashboard_data(
 ) -> Dict[str, Any]:
     """Prepare structured dashboard data from model results with feature names."""
 
+    # Convert args to a dictionary for easy storage in metadata
+    args_dict = vars(args)
+
     dashboard_data = {
         "metadata": {
             "model": {
@@ -92,6 +95,7 @@ def prepare_dashboard_data(
                 "random_state": args.random_state,
                 "cv_folds": args.cv_folds if hasattr(args, "cv_folds") else 5,
             },
+            "args": args_dict,  # Save all arguments in metadata
             "timestamp": datetime.now().isoformat(),
             "class_names": class_names,
         },
@@ -104,10 +108,6 @@ def prepare_dashboard_data(
                         "std_accuracy": linear_results["cv_scores"]["std"],
                         "fold_scores": linear_results["cv_scores"]["scores"],
                     },
-                },
-                "hyperparameters": {
-                    "best_params": linear_results["best_params"],
-                    "search_space": linear_results.get("param_grid", {}),
                 },
                 "class_metrics": {
                     class_name: {

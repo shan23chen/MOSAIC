@@ -16,7 +16,12 @@ from sort_load_datasets import (
 from classifiers import ModelTrainer, TrainingConfig
 from utils_dash import NumpyJSONEncoder, prepare_dashboard_data, get_tree_info
 from models import get_sae_config
-from utils import get_save_directory, setup_logging, get_dashboard_directory
+from utils import (
+    get_save_directory,
+    setup_logging,
+    get_dashboard_directory,
+    parse_binarize_value,
+)
 
 
 # Configure logging
@@ -60,7 +65,7 @@ def parse_arguments():
         help="Model type (vlm or llm)",
     )
     parser.add_argument(
-        "--sae_location", type=str, help="SAE location e.g. mlp or res", required=True
+        "--sae-location", type=str, help="SAE location e.g. mlp or res", required=True
     )
     parser.add_argument(
         "--layer",
@@ -81,7 +86,7 @@ def parse_arguments():
         required=True,
     )
     parser.add_argument(
-        "--dataset_config_name",
+        "--dataset-config-name",
         type=str,
         help="Dataset config name (e.g., subject)",
         default=None,
@@ -97,6 +102,12 @@ def parse_arguments():
         type=int,
         default=5,
         help="Number of top values for feature extraction",
+    )
+    parser.add_argument(
+        "--binarize-value",
+        default=None,
+        type=str,
+        help="Value to clip features values to (None for no clipping)",
     )
     parser.add_argument("--last-token", action="store_true", help="Use only last token")
     parser.add_argument(
@@ -118,23 +129,28 @@ def parse_arguments():
         "--cv_folds", type=int, default=5, help="Number of cross-validation folds"
     )
     parser.add_argument(
-        "--linear_c_values",
+        "--linear-c-values",
         type=float,
         nargs="+",
         default=[0.1, 1.0, 10.0],
         help="C values for linear probe grid search",
     )
     parser.add_argument(
-        "--tree_min_samples_split",
+        "--tree-min-samples-split",
         type=int,
         default=2,
         help="Minimum samples required to split for decision tree",
     )
     parser.add_argument(
-        "--tree_min_samples_leaf",
+        "--tree-min-samples-leaf",
         type=int,
         default=1,
         help="Minimum samples required at leaf node for decision tree",
+    )
+    parser.add_argument(
+        "--all-tokens",
+        action="store_true",
+        help="Use all tokens for feature extraction",
     )
 
     return parser.parse_args()
@@ -204,22 +220,37 @@ def main():
                 )
                 # TODO: Add explanation path for non-LLM models
 
-            processed_df = process_data(
-                metadata_df=metadata_df,
-                sae=sae,
-                cfg_dict=cfg_dict,
-                last_token=args.last_token,
-                top_n=args.top_n,
-            )
+            try:
+                features, label_encoder = load_features(
+                    layer_save_dir, args.model_type, args.top_n, layer
+                )
+                logging.info(f"Features loaded from {layer_save_dir}")
+            except FileNotFoundError:
+                logging.info(f"Features not found, processing data")
 
-            # Save processed features
-            label_encoder = save_features(
-                df=processed_df,
-                layer_dir=layer_save_dir,
-                model_type=args.model_type,
-            )
+                processed_df = process_data(
+                    metadata_df=metadata_df,
+                    sae=sae,
+                    cfg_dict=cfg_dict,
+                    last_token=args.last_token,
+                    top_n=args.top_n,
+                )
 
-            del processed_df
+                # Save processed features
+                label_encoder = save_features(
+                    df=processed_df,
+                    layer_dir=layer_save_dir,
+                    model_type=args.model_type,
+                    top_n=args.top_n,
+                    layer=layer,
+                    all_tokens=args.all_tokens,
+                )
+
+                del processed_df
+
+                features, label_encoder = load_features(
+                    layer_save_dir, args.model_type, args.top_n, layer
+                )
 
             # Initialize training configuration
             config = TrainingConfig(
@@ -231,21 +262,28 @@ def main():
             # Initialize model trainer
             trainer = ModelTrainer(config, label_encoder)
 
-            # Reload features
-            features = load_features(layer_save_dir, args.model_type)
+            binarize_value = parse_binarize_value(args.binarize_value)
 
             # Train models with enhanced pipeline
             print("===== Training models =====")
             print("--- Hidden states ---")
             print("Training linear probe on hidden states")
-            hidden_linear_results = trainer.train_linear_probe(features, hidden=True)
+            hidden_linear_results = trainer.train_linear_probe(
+                features, hidden=True, binarize_value=None
+            )
             print("Training decision tree on hidden states")
-            hidden_tree_results = trainer.train_decision_tree(features, hidden=True)
+            hidden_tree_results = trainer.train_decision_tree(
+                features, hidden=True, binarize_value=None
+            )
             print("--- SAE features ---")
             print("Training linear probe on SAE features")
-            sae_linear_results = trainer.train_linear_probe(features, hidden=False)
+            sae_linear_results = trainer.train_linear_probe(
+                features, hidden=False, binarize_value=binarize_value
+            )
             print("Training decision tree on SAE features")
-            sae_tree_results = trainer.train_decision_tree(features, hidden=False)
+            sae_tree_results = trainer.train_decision_tree(
+                features, hidden=False, binarize_value=binarize_value
+            )
 
             # Save results using new save method
             trainer.save_results(
@@ -310,7 +348,7 @@ def main():
                 args=args,
                 layer=layer,
                 tree_info=get_tree_info(sae_tree_results["model"]),
-                hidden=True,
+                hidden=False,
                 feature_mapping=feature_mapping,
                 class_names=label_encoder.classes_,
             )

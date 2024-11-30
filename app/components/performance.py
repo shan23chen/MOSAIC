@@ -15,7 +15,7 @@ def create_model_performance_section(linear_metrics, tree_metrics):
                                 dbc.CardBody(
                                     [
                                         html.Div(
-                                            "Training Score",
+                                            "Linear Probe Accuracy",
                                             className="text-muted mb-2",
                                         ),
                                         html.Div(
@@ -42,7 +42,8 @@ def create_model_performance_section(linear_metrics, tree_metrics):
                                 dbc.CardBody(
                                     [
                                         html.Div(
-                                            "Test Score", className="text-muted mb-2"
+                                            "Decision Tree Accuracy",
+                                            className="text-muted mb-2",
                                         ),
                                         html.Div(
                                             f"{tree_metrics['accuracy']*100:.1f}%",

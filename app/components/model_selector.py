@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 
 
 def create_model_selector(options: Dict[str, Any]) -> dbc.Card:
-    """Create selector components for model, dataset, result type, and layer."""
+    """Create selector components for model, dataset, layer, width, and additional filters."""
     return dbc.Card(
         dbc.CardBody(
             [
@@ -19,59 +19,97 @@ def create_model_selector(options: Dict[str, Any]) -> dbc.Card:
                                         {"label": model, "value": model}
                                         for model in options["models"]
                                     ],
-                                    value=(
-                                        options["models"][0]
-                                        if options["models"]
-                                        else None
-                                    ),
-                                    clearable=False,
-                                    className="mb-2",
+                                    placeholder="Select a model",
                                 ),
                             ],
-                            md=3,
+                            width=4,
                         ),
                         dbc.Col(
                             [
                                 html.Label("Dataset", className="fw-bold"),
                                 dcc.Dropdown(
                                     id="dataset-selector",
-                                    clearable=False,
-                                    className="mb-2",
+                                    placeholder="Select a dataset",
                                 ),
                             ],
-                            md=3,
-                        ),
-                        dbc.Col(
-                            [
-                                html.Label("Result Type", className="fw-bold"),
-                                dcc.Dropdown(
-                                    id="result-type-selector",
-                                    options=[
-                                        {"label": "Hidden", "value": "hidden"},
-                                        {"label": "SAE", "value": "sae"},
-                                    ],
-                                    value="hidden",
-                                    clearable=False,
-                                    className="mb-2",
-                                ),
-                            ],
-                            md=3,
+                            width=4,
                         ),
                         dbc.Col(
                             [
                                 html.Label("Layer", className="fw-bold"),
                                 dcc.Dropdown(
                                     id="layer-selector",
-                                    clearable=False,
-                                    className="mb-2",
+                                    placeholder="Select a layer",
                                 ),
                             ],
-                            md=3,
+                            width=4,
                         ),
-                    ],
-                    className="g-2",
+                    ]
                 ),
+                html.Br(),
+                dbc.Row(
+                    [
+                        dbc.Col(
+                            [
+                                html.Label("Width", className="fw-bold"),
+                                dcc.Dropdown(
+                                    id="width-selector",
+                                    placeholder="Select a width",
+                                ),
+                            ],
+                            width=4,
+                        ),
+                        dbc.Col(
+                            [
+                                html.Label("Top N", className="fw-bold"),
+                                dcc.Dropdown(
+                                    id="top-n-selector",
+                                    placeholder="Select Top N",
+                                ),
+                            ],
+                            width=4,
+                        ),
+                        dbc.Col(
+                            [
+                                html.Label("Config Name", className="fw-bold"),
+                                dcc.Dropdown(
+                                    id="config-name-selector",
+                                    placeholder="Select a config name",
+                                ),
+                            ],
+                            width=4,
+                        ),
+                    ]
+                ),
+                html.Br(),
+                dbc.Row(
+                    [
+                        dbc.Col(
+                            [
+                                html.Label("Binarise Value", className="fw-bold"),
+                                dcc.Dropdown(
+                                    id="binarise-selector",
+                                    placeholder="Select binarise value",
+                                ),
+                            ],
+                            width=6,
+                        ),
+                        dbc.Col(
+                            [
+                                html.Label("Hidden", className="fw-bold"),
+                                dcc.Dropdown(
+                                    id="hidden-selector",
+                                    placeholder="Select hidden value",
+                                ),
+                            ],
+                            width=6,
+                        ),
+                    ]
+                ),
+                html.Br(),
+                dbc.Button("Load Data", id="load-data-button", color="primary"),
+                html.Div(id="loaded-data", style={"display": "none"}),
             ]
         ),
-        className="mb-3 bg-white",
+        className="mt-3",
     )

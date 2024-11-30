@@ -164,9 +164,9 @@ def get_sae_config(
     explanation_file_path = None
     try:
         feature_lookup = FeatureLookup(
-            config_path="resource/pretrained_saes.yaml", cache_dir="./explanation_cache"
+            config_path="src/resource/pretrained_saes.yaml",
+            cache_dir="./explanation_cache",
         )
-        # ... rest of the explanation handling code ...
     except Exception as e:
         logging.error(f"Error fetching explanations: {str(e)}")
         explanation_file_path = None
@@ -184,7 +184,6 @@ def prepare_inputs(images, texts, tokenizer_or_processor, device, model_type):
         if isinstance(texts, list):
             # Flatten any nested lists and join with space
             texts = [t[0] if isinstance(t, list) else str(t) for t in texts]
-            
 
         # Ensure all elements are strings
         texts = [str(t) if t is not None else "" for t in texts]
@@ -228,7 +227,7 @@ def extract_hidden_states(model, inputs, layer, model_type):
     if model_type == "llm":
         outputs = model(**inputs, output_hidden_states=True, return_dict=True)
         hidden_states = outputs.hidden_states
-        print(f"Hidden states shape: {len(hidden_states)}")
+        # print(f"Hidden states shape: {len(hidden_states)}")
         target_act = hidden_states[layer].to(device)
     else:  # For VLM models
         outputs = model.generate(

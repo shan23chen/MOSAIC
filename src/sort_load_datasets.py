@@ -10,6 +10,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from sklearn.preprocessing import LabelEncoder
 from tqdm import tqdm
 
+
 def get_metadata_path(input_dir, model_name, layer):
     """
     Construct metadata file path based on run.py output structure.
@@ -24,9 +25,17 @@ def get_metadata_path(input_dir, model_name, layer):
     """
     # Clean model name for file path
     clean_model_name = re.sub(r"[^a-zA-Z0-9]", "-", model_name)
-    metadata_path = (
+    metadata_path_with_sae = (
         Path(input_dir) / f"{clean_model_name}_{layer}_sae_activations_metadata.csv"
     )
+    metadata_path_without_sae = (
+        Path(input_dir) / f"{clean_model_name}_{layer}_activations_metadata.csv"
+    )
+
+    if metadata_path_with_sae.exists():
+        metadata_path = metadata_path_with_sae
+    else:
+        metadata_path = metadata_path_without_sae
     logging.info(f"Metadata path: {metadata_path}")
     return metadata_path
 
@@ -53,13 +62,14 @@ def load_npz_file(npz_path, sample_id, label, progress_dict=None):
         logging.error(f"Error processing file {npz_path}: {e}")
         return None
 
+
 def cast_sae_acts_dim_check(sae_acts_list):
     """
     Attempts to cast the 'sae_acts' column of the DataFrame to a NumPy array.
-    
+
     Args:
         sae_acts_list (list): A list of 'sae_acts' values from the DataFrame.
-        
+
     Returns:
         bool: True if casting is successful, False if a ValueError due to inhomogeneous shapes occurs.
     """
@@ -70,14 +80,13 @@ def cast_sae_acts_dim_check(sae_acts_list):
         return True
     except ValueError as e:
         error_message = str(e)
-        target_error = (
-            "The requested array has an inhomogeneous shape"
-        )
+        target_error = "The requested array has an inhomogeneous shape"
         if target_error in error_message:
             return False
         else:
             # Re-raise the exception if it's a different ValueError
             raise
+
 
 def process_batch(batch, sae, cfg_dict, last_token, top_n, device, progress_dict=None):
     """Process batch with progress tracking."""
@@ -156,19 +165,37 @@ def process_batch(batch, sae, cfg_dict, last_token, top_n, device, progress_dict
         ## TODO matrixify this
         ## batch_df["sae_acts"] should be N x 1 x 2028 or N x 586 x 2048 or N x different x 2048
         if cast_sae_acts_dim_check(batch_df["sae_acts"].to_list()):
-            # features_array = batch_optimized_top_n_to_one_hot(
-            #     np.array(batch_df["sae_acts"].to_list()), top_n
-            # )
-            # batch_df["features"] = list(features_array) # this is not working
-            batch_df["features"] = batch_df["sae_acts"].apply(
-                lambda x: optimized_top_n_to_one_hot(x, top_n, progress_dict)
-            )
+            if top_n != 0:
+                features_array = batch_optimized_top_n_to_one_hot(
+                    np.array(batch_df["sae_acts"].to_list()), top_n
+                )
+                batch_df["features"] = list(features_array)
+            elif top_n == -1:
+                print(
+                    "=+++++ your sae_acts are same token length, taking max value per index +++++++="
+                )
+                batch_df["features"] = [arr.max(axis=0) for arr in batch_df["sae_acts"]]
+            else:
+                print(
+                    "=+++++ your sae_acts are same token length, going to matrixify +++++++="
+                )
+                print("=+++++ no max pooling is needed +++++++=")
+                batch_df["features"] = [arr.sum(axis=0) for arr in batch_df["sae_acts"]]
         else:
-            print("=+++++ your sae_acts are different token length, going to loop through +++++++=")
-            batch_df["features"] = batch_df["sae_acts"].apply(
-                lambda x: optimized_top_n_to_one_hot(x, top_n, progress_dict)
-            )
-
+            if top_n == 0:
+                batch_df["features"] = [arr.sum(axis=0) for arr in batch_df["sae_acts"]]
+            elif top_n == -1:
+                print(
+                    "=+++++ your sae_acts are different token length, taking max value per index +++++++="
+                )
+                batch_df["features"] = [arr.max(axis=0) for arr in batch_df["sae_acts"]]
+            else:
+                print(
+                    "=+++++ your sae_acts are different token length, going to loop through +++++++="
+                )
+                batch_df["features"] = batch_df["sae_acts"].apply(
+                    lambda x: optimized_top_n_to_one_hot(x, top_n, progress_dict)
+                )
 
         batch_df.drop("sae_acts", axis=1, inplace=True)
 
@@ -179,14 +206,16 @@ def process_batch(batch, sae, cfg_dict, last_token, top_n, device, progress_dict
         raise
 
 
-def optimized_top_n_to_one_hot(array, top_n, progress_dict=None, binary=False, int8=False):
+def optimized_top_n_to_one_hot(
+    array, top_n, progress_dict=None, binary=False, int8=False
+):
     """Memory-efficient top-n to one-hot conversion with progress tracking."""
     if array is None:
         return None
 
     token_length, dim_size = array.shape
 
-    # taking top_n activated functions 
+    # taking top_n activated functions
     top_n_indices = np.argpartition(-array, top_n, axis=1)[:, :top_n]
     sparse_array = np.zeros((token_length, dim_size), dtype=np.uint8)
 
@@ -214,6 +243,65 @@ def optimized_top_n_to_one_hot(array, top_n, progress_dict=None, binary=False, i
         # uint16 0~65535 2^15
         return result.astype(np.uint16)
 
+
+def batch_optimized_top_n_to_one_hot(
+    array, top_n, progress_dict=None, binary=False, int8=False
+):
+    """
+    Memory-efficient and fast top-n to one-hot conversion using sparse matrices.
+    """
+    if array is None:
+        return None
+
+    batch_size, token_length, dim_size = array.shape
+
+    # Step 1: Find indices of top_n activations per token for each sample in the batch
+    top_n_indices = np.argpartition(-array, top_n, axis=2)[:, :, :top_n]
+
+    # Step 2: Flatten the indices for efficient processing
+    flattened_indices = top_n_indices.reshape(-1)
+    flattened_batch_indices = np.repeat(np.arange(batch_size), token_length * top_n)
+
+    # Step 3: Use sparse matrix to count occurrences efficiently
+    from scipy.sparse import coo_matrix
+
+    data = np.ones_like(flattened_indices, dtype=np.uint16)
+    row_indices = flattened_batch_indices
+    col_indices = flattened_indices
+
+    # Create a sparse matrix where each occurrence is a 1
+    sparse_counts = coo_matrix(
+        (data, (row_indices, col_indices)),
+        shape=(batch_size, dim_size),
+        dtype=np.uint16,
+    ).toarray()
+
+    # Clean up variables to free memory
+    del (
+        top_n_indices,
+        flattened_indices,
+        flattened_batch_indices,
+        data,
+        row_indices,
+        col_indices,
+    )
+    gc.collect()
+
+    # Update progress
+    if progress_dict is not None:
+        progress_dict["processed_items"] += batch_size
+
+    # Post-process the result based on flags
+    if binary:
+        sparse_counts = sparse_counts.astype(bool)
+    if int8:
+        sparse_counts = np.clip(sparse_counts, 0, 255).astype(np.int8)
+    else:
+        sparse_counts = sparse_counts.astype(np.uint16)
+
+    return sparse_counts
+
+
 def process_data(
     metadata_df,
     sae,
@@ -221,7 +309,7 @@ def process_data(
     last_token=False,
     top_n=5,
     batch_size=1000,
-    num_workers=10,
+    num_workers=30,
 ):
     """Main processing function with detailed progress tracking."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -341,7 +429,7 @@ def process_data(
                 torch.cuda.empty_cache()
 
 
-def save_features(df, layer_dir, model_type):
+def save_features(df, layer_dir, model_type, top_n, layer, all_tokens=False):
     """Save processed features."""
     output_dir = Path(layer_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -350,14 +438,22 @@ def save_features(df, layer_dir, model_type):
     print(df.head())
     # # Convert hidden_states from pandas Series to numpy array
     if df["hidden_state"].iloc[0].shape[0] == 1:
-        print('《==》last token already, reducing dimension now')
+        print("《==》last token already, reducing dimension now")
         hidden_states_array = np.array([i[0] for i in df["hidden_state"]])
     else:
-        print('《==》it is going in here - multiple tokens, taking last for residual_stream')
-        hidden_states_array = np.array([i[-1] for i in df["hidden_state"]])
+        if all_tokens:
+            print(
+                "《==》it is going in here - multiple tokens, taking all for residual_stream"
+            )
+            hidden_states_array = np.array([i for i in df["hidden_state"]])
+        else:
+            print(
+                "《==》it is going in here - multiple tokens, taking last for residual_stream"
+            )
+            hidden_states_array = np.array([i[-1] for i in df["hidden_state"]])
 
     # Save features
-    output_file = output_dir / f"{model_type}_features.npz"
+    output_file = output_dir / f"{layer}_{top_n}_{model_type}_features.npz"
     logging.info(f"Saving features to {output_file}")
     np.savez_compressed(
         output_file,
@@ -374,16 +470,31 @@ def save_features(df, layer_dir, model_type):
     metadata_file = output_dir / f"{model_type}_metadata.csv"
     df[["sample_id", "label"]].to_csv(metadata_file, index=False)
 
+    # Save label encoder
+    label_encoder_file = output_dir / f"{model_type}_label_encoder.pkl"
+    logging.info(f"Saving label encoder to {label_encoder_file}")
+    torch.save(label_encoder, label_encoder_file)
+
     logging.info(f"Saved features to {output_file}")
     logging.info(f"Saved metadata to {metadata_file}")
 
     return label_encoder
 
 
-def load_features(layer_dir, model_type):
+def load_features(layer_dir, model_type, top_n, layer):
     """Load processed features."""
     input_dir = Path(layer_dir)
 
-    file_path = input_dir / f"{model_type}_features.npz"
+    file_path = input_dir / f"{layer}_{top_n}_{model_type}_features.npz"
 
-    return np.load(file_path, allow_pickle=True)
+    label_encoder_file = input_dir / f"{model_type}_label_encoder.pkl"
+    label_encoder = torch.load(label_encoder_file)
+
+    return np.load(file_path, allow_pickle=True), label_encoder
+
+
+def features_file_exists(layer_dir, model_type):
+    """Check if the features file exists."""
+    input_dir = Path(layer_dir)
+    file_path = input_dir / f"{model_type}_features.npz"
+    return file_path.exists()

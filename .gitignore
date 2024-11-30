@@ -14,3 +14,8 @@ sae_llava.egg-info/
 src/outputs
 *.job
 src/output/
+src/run_zip.sh
+.env
+src/outputs/
+*.eval
+output/activations/
