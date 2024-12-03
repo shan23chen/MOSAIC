@@ -168,7 +168,10 @@ def get_hidden_states(
                 # Extract hidden states for the current batch
                 hidden_states = extract_hidden_states(model, inputs, layer, model_type)
                 # print(type(hidden_states), hidden_states.size())
-                hidden_states = get_valid_token(model_name, model_type, hidden_states, all_tokens)
+                hidden_states = get_valid_token(model_name, model_type, hidden_states, all_tokens)                
+                # move hidden_states to cuda to be the same as sae
+                hidden_states = hidden_states.to(sae.device)
+            
                 # print(type(hidden_states), hidden_states.size())
                 labels = batch.get(label_field) # get label
                 ids = batch.get("id")  # Get the unique ID/index for tracking 

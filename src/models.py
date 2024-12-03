@@ -47,23 +47,22 @@ def load_models_and_tokenizer(
         logging.info(f"Loading LLM model ++ {checkpoint}")
         tokenizer = AutoTokenizer.from_pretrained(checkpoint)
         model = AutoModelForCausalLM.from_pretrained(
-            checkpoint, device_map="auto", torch_dtype=torch.float16
-        )
+            checkpoint, device_map="auto", torch_dtype=torch.float16, attn_implementation="flash_attention_2"
+        ) #sequential
     elif model_type == "vlm":
         logging.info(f"Loading VLM model ++ {checkpoint}")
         processor = AutoProcessor.from_pretrained(checkpoint)
         if "paligemma" in checkpoint.lower():
             model = PaliGemmaForConditionalGeneration.from_pretrained(
-                checkpoint, device_map="auto"
+                checkpoint, device_map="auto", attn_implementation="flash_attention_2"
             )
         else:
             model = LlavaForConditionalGeneration.from_pretrained(
-                checkpoint, device_map="auto"
+                checkpoint, device_map="auto", attn_implementation="flash_attention_2"
             )
     else:
         raise ValueError(f"Unsupported model_type: {model_type}")
 
-    model.to(device)
     if model_type == "llm" and "gemma-2" in checkpoint.lower():
         # Get SAE configuration based on model architecture
         sae_location, feature_id, _ = get_sae_config(
@@ -90,7 +89,7 @@ def load_models_and_tokenizer(
             sae_id=f"blocks.{layer}.hook_resid_post",
             device=device,
         )
-
+    sae.to(device)
     if model_type == "llm":
         return model, tokenizer, sae
     else:
@@ -192,7 +191,7 @@ def prepare_inputs(images, texts, tokenizer_or_processor, device, model_type):
 
         inputs = tokenizer_or_processor(
             texts, return_tensors="pt", padding=True, truncation=True
-        ).to(device)
+        )
         return inputs
     elif model_type == "vlm":
         if images is None:
@@ -218,31 +217,36 @@ def prepare_image_inputs(images, texts, processor, device):
         prompts.append(prompt)
     inputs = processor(
         text=prompts, images=list(images), return_tensors="pt", padding=True
-    ).to(device)
+    )
     return inputs
 
 
 def extract_hidden_states(model, inputs, layer, model_type):
-    # TODO @ shan: make sure load and process function hook to different position nex week
-    if model_type == "llm":
-        outputs = model(**inputs, output_hidden_states=True, return_dict=True)
-        hidden_states = outputs.hidden_states
-        # print(f"Hidden states shape: {len(hidden_states)}")
-        target_act = hidden_states[layer].to(device)
-    else:  # For VLM models
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=1,
-            return_dict_in_generate=True,
-            output_scores=True,
-            output_hidden_states=True,
-        )
-        hidden_states = outputs.get("hidden_states", None)
-        if hidden_states is None:
-            raise ValueError("Hidden states not found in outputs")
-        # Get the hidden states at the specified layer
-        target_act = hidden_states[0][layer].to(device)
-    return target_act
+    try:
+        if model_type == "llm":
+            outputs = model(**inputs, output_hidden_states=True, return_dict=True, use_cache=False)
+            hidden_states = outputs.hidden_states
+            target_act = hidden_states[layer]
+        else:  # For VLM models
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=1,
+                return_dict_in_generate=True,
+                output_scores=True,
+                output_hidden_states=True,
+                use_cache=False,  # Add this line
+            )
+            hidden_states = outputs.get("hidden_states", None)
+            if hidden_states is None:
+                raise ValueError("Hidden states not found in outputs")
+            target_act = hidden_states[0][layer]
+            
+        return target_act
+        
+    except RuntimeError as e:
+        if "Expected all tensors to be on the same device" in str(e) or "indices should be either on cpu or on the same device" in str(e):
+            print(f"Device mismatch detected: {e}")
+        raise
 
 
 def analyze_with_sae(sae, target_act):
