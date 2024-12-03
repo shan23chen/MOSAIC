@@ -658,6 +658,9 @@ class ModelTrainer:
         # Final check to convert -> serializable
         results_copy = convert_to_serializable(results_copy)
 
+        # print keys
+        print(results_copy.keys())
+
         # Save metrics in JSON format
         metrics_path = output_dir / f"{model_type}_{hidden}_metrics.json"
         with open(metrics_path, "w") as f:
