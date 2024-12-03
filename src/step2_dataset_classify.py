@@ -13,6 +13,7 @@ from sort_load_datasets import (
     save_features,
     load_features,
 )
+from utils import convert_to_serializable
 from classifiers import ModelTrainer, TrainingConfig
 from utils_dash import NumpyJSONEncoder, prepare_dashboard_data, get_tree_info
 from models import get_sae_config
@@ -368,6 +369,10 @@ def main():
             sae_dashboard_path = (
                 Path(dashboard_save_dir) / "sae_classifier_results.json"
             )
+
+            # convert to serializable format
+            hidden_dashboard_data = convert_to_serializable(hidden_dashboard_data)
+            sae_dashboard_data = convert_to_serializable(sae_dashboard_data)
 
             with open(hidden_dashboard_path, "w") as f:
                 json.dump(hidden_dashboard_data, f, indent=2, cls=NumpyJSONEncoder)

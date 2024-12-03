@@ -3,6 +3,7 @@ import logging
 import sys
 import numpy as np
 from datetime import datetime
+import json
 
 
 def sanitize_path(path_str):
@@ -52,9 +53,13 @@ def convert_to_serializable(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()
     elif isinstance(obj, dict):
-        return {key: convert_to_serializable(value) for key, value in obj.items()}
+        return {str(key): convert_to_serializable(value) for key, value in obj.items()}
     elif isinstance(obj, (list, tuple)):
         return [convert_to_serializable(item) for item in obj]
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
     return obj
 
 
