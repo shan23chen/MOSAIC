@@ -7,32 +7,32 @@ settings:
   test_size: 0.2
   tree_depth: 5
   act_only: True
-  cuda_visible_devices: "0"
+  cuda_visible_devices: "1"
 
 models:
   # - name: "google/gemma-2b"
   #   layers: [6, 12, 17]
   #   widths: ["16k"]
 
-  # - name: "google/gemma-2-2b"
-  #   layers: [5, 12, 19]
-  #   widths: ["16k", "65k"]
+  - name: "google/gemma-2-2b"
+    layers: [5, 12, 19]
+    widths: ["16k"]
 
   # - name: "google/gemma-2-9b"
   #   layers: [9, 20, 31]
   #   widths: ["16k"]
 
-  - name: "google/gemma-2-9b-it"
-    layers: [9, 20, 31]
-    widths: ["16k"]
+  # - name: "google/gemma-2-9b-it"
+  #   layers: [9, 20, 31]
+  #   widths: ["16k"]
 
 datasets:
 
-  # - name: "Anthropic/election_questions"
-  #   config_name: ""
-  #   split: "test"
-  #   text_field: "question"
-  #   label_field: "label"
+  - name: "Anthropic/election_questions"
+    config_name: ""
+    split: "test"
+    text_field: "question"
+    label_field: "label"
 
   # - name: "AIM-Harvard/multilingual_toxicity_dataset"
   #   config_name: ""
@@ -106,53 +106,53 @@ datasets:
   #   text_field: "prompt"
   #   label_field: "type"
     
-  - name: "cardiffnlp/tweet_sentiment_multilingual"
-    config_name: "english"
-    split: "test"
-    text_field: "text"
-    label_field: "label"
+  # - name: "cardiffnlp/tweet_sentiment_multilingual"
+  #   config_name: "english"
+  #   split: "test"
+  #   text_field: "text"
+  #   label_field: "label"
 
-  - name: "cardiffnlp/tweet_sentiment_multilingual"
-    config_name: "spanish"
-    split: "test"
-    text_field: "text"
-    label_field: "label"
+  # - name: "cardiffnlp/tweet_sentiment_multilingual"
+  #   config_name: "spanish"
+  #   split: "test"
+  #   text_field: "text"
+  #   label_field: "label"
 
-  - name: "cardiffnlp/tweet_sentiment_multilingual"
-    config_name: "french"
-    split: "test"
-    text_field: "text"
-    label_field: "label"
+  # - name: "cardiffnlp/tweet_sentiment_multilingual"
+  #   config_name: "french"
+  #   split: "test"
+  #   text_field: "text"
+  #   label_field: "label"
 
-  - name: "cardiffnlp/tweet_sentiment_multilingual"
-    config_name: "german"
-    split: "test"
-    text_field: "text"
-    label_field: "label"
+  # - name: "cardiffnlp/tweet_sentiment_multilingual"
+  #   config_name: "german"
+  #   split: "test"
+  #   text_field: "text"
+  #   label_field: "label"
 
-  - name: "cardiffnlp/tweet_sentiment_multilingual"
-    config_name: "portuguese"
-    split: "test"
-    text_field: "text"
-    label_field: "label"
+  # - name: "cardiffnlp/tweet_sentiment_multilingual"
+  #   config_name: "portuguese"
+  #   split: "test"
+  #   text_field: "text"
+  #   label_field: "label"
 
-  - name: "cardiffnlp/tweet_sentiment_multilingual"
-    config_name: "italian"
-    split: "test"
-    text_field: "text"
-    label_field: "label"
+  # - name: "cardiffnlp/tweet_sentiment_multilingual"
+  #   config_name: "italian"
+  #   split: "test"
+  #   text_field: "text"
+  #   label_field: "label"
 
-  - name: "cardiffnlp/tweet_sentiment_multilingual"
-    config_name: "arabic"
-    split: "test"
-    text_field: "text"
-    label_field: "label"
+  # - name: "cardiffnlp/tweet_sentiment_multilingual"
+  #   config_name: "arabic"
+  #   split: "test"
+  #   text_field: "text"
+  #   label_field: "label"
 
-  - name: "cardiffnlp/tweet_sentiment_multilingual"
-    config_name: "hindi"
-    split: "test"
-    text_field: "text"
-    label_field: "label"
+  # - name: "cardiffnlp/tweet_sentiment_multilingual"
+  #   config_name: "hindi"
+  #   split: "test"
+  #   text_field: "text"
+  #   label_field: "label"
 
   # - name: "gallifantjack/pminervini_NQ_Swap_sub_answer"
   #   config_name: ""

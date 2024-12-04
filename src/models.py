@@ -222,6 +222,9 @@ def prepare_image_inputs(images, texts, processor, device):
 
 
 def extract_hidden_states(model, inputs, layer, model_type):
+    # check cuda visible devices amount
+    if len(os.environ["CUDA_VISIBLE_DEVICES"].split(",")) < 2:
+        inputs = {k: v.to("cuda") for k, v in inputs.items()}
     try:
         if model_type == "llm":
             outputs = model(**inputs, output_hidden_states=True, return_dict=True, use_cache=False)
