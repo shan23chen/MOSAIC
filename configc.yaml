@@ -1,0 +1,42 @@
+settings:
+  base_save_dir: "./output/activations"
+  base_classify_dir: "./output/classifications"
+  batch_size: 80
+  model_type: "vlm"
+  sae_location: "res"
+  test_size: 0.2
+  tree_depth: 5
+  act_only: True
+  cuda_visible_devices: "1,2"
+
+models:
+  - name: "Intel/llava-gemma-2b"
+    layers: [6, 10, 17]
+    widths: ["16k"]
+
+  # - name: "google/gemma-2-2b"
+  #   layers: [5, 12, 19]
+  #   widths: ["16k", "65k"]
+
+  # - name: "google/gemma-2-9b"
+  #   layers: [9, 20, 31]
+  #   widths: ["16k"]
+
+  # - name: "google/gemma-2-9b-it"
+  #   layers: [9, 20, 31]
+  #   widths: ["16k"]
+
+datasets:
+  - name: "benjamin-paine/imagenet-1k-256x256"
+    config_name: ""
+    split: "validation"
+    text_field: "user"
+    label_field: "label"
+    image_field: "image"
+
+classification_params:
+  top_n_values: [0, 20, 50]
+  binarize_values: [null, 1.0]
+  extra_top_n: -1
+  extra_binarize_value: null
+

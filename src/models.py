@@ -17,6 +17,36 @@ from utils_neuronpedia import FeatureLookup
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+def gather_activations(model, target_layer, inputs, module_type="res"):
+    target_act = None
+
+    def gather_target_act_hook(mod, inp, out):
+        nonlocal target_act
+        # out might be a tuple if the module returns multiple values
+        # Adjust indexing if needed based on module outputs
+        if isinstance(out, tuple):
+            target_act = out[0]
+        else:
+            target_act = out
+        return out
+
+    # Choose which module to hook based on `module_type`
+    if module_type == "res":
+        module_to_hook = model.model.layers[target_layer]
+    elif module_type == "att":
+        module_to_hook = model.model.layers[target_layer].self_attn
+    elif module_type == "mlp":
+        module_to_hook = model.model.layers[target_layer].mlp
+    else:
+        raise ValueError(f"Unknown module_type: {module_type}")
+
+    handle = module_to_hook.register_forward_hook(gather_target_act_hook)
+
+    with torch.no_grad():
+        _ = model(inputs)
+
+    handle.remove()
+    return target_act
 
 def load_models_and_tokenizer(
     checkpoint: str,
@@ -47,18 +77,18 @@ def load_models_and_tokenizer(
         logging.info(f"Loading LLM model ++ {checkpoint}")
         tokenizer = AutoTokenizer.from_pretrained(checkpoint)
         model = AutoModelForCausalLM.from_pretrained(
-            checkpoint, device_map="auto", torch_dtype=torch.float16, attn_implementation="flash_attention_2"
+            checkpoint, device_map="auto", torch_dtype=torch.float16
         ) #sequential
     elif model_type == "vlm":
         logging.info(f"Loading VLM model ++ {checkpoint}")
         processor = AutoProcessor.from_pretrained(checkpoint)
         if "paligemma" in checkpoint.lower():
             model = PaliGemmaForConditionalGeneration.from_pretrained(
-                checkpoint, device_map="auto", attn_implementation="flash_attention_2"
+                checkpoint, device_map="auto"
             )
         else:
             model = LlavaForConditionalGeneration.from_pretrained(
-                checkpoint, device_map="auto", attn_implementation="flash_attention_2"
+                checkpoint, device_map="auto"
             )
     else:
         raise ValueError(f"Unsupported model_type: {model_type}")
@@ -221,35 +251,69 @@ def prepare_image_inputs(images, texts, processor, device):
     return inputs
 
 
-def extract_hidden_states(model, inputs, layer, model_type):
-    # check cuda visible devices amount
-    if len(os.environ["CUDA_VISIBLE_DEVICES"].split(",")) < 2:
-        inputs = {k: v.to("cuda") for k, v in inputs.items()}
+def extract_hidden_states(model, inputs, layer, model_type, sae_location):
     try:
-        if model_type == "llm":
-            outputs = model(**inputs, output_hidden_states=True, return_dict=True, use_cache=False)
-            hidden_states = outputs.hidden_states
-            target_act = hidden_states[layer]
-        else:  # For VLM models
-            outputs = model.generate(
-                **inputs,
-                max_new_tokens=1,
-                return_dict_in_generate=True,
-                output_scores=True,
-                output_hidden_states=True,
-                use_cache=False,  # Add this line
-            )
-            hidden_states = outputs.get("hidden_states", None)
-            if hidden_states is None:
-                raise ValueError("Hidden states not found in outputs")
-            target_act = hidden_states[0][layer]
-            
+        # Check the number of available GPUs
+        num_gpus = len(os.environ["CUDA_VISIBLE_DEVICES"].split(","))
+
+        # If there's only one GPU, ensure inputs are moved onto it
+        if num_gpus < 2:
+            inputs = {k: v.to("cuda") for k, v in inputs.items()}
+
+            if model_type == "llm":
+                # For LLM models on a single GPU, use gather_activations
+                # TODO: GPU bug on gather_activations for multiple GPUs
+                target_act = gather_activations(model, layer, inputs['input_ids'], module_type=sae_location)
+            else:
+                # For VLM models, only 'res' is supported currently
+                if sae_location != "res":
+                    raise ValueError("Only 'res' SAE location is supported for VLM models at this moment.")
+
+                outputs = model.generate(
+                    **inputs,
+                    max_new_tokens=1,
+                    return_dict_in_generate=True,
+                    output_scores=True,
+                    output_hidden_states=True,
+                    use_cache=False
+                )
+                hidden_states = outputs.get("hidden_states", None)
+                if hidden_states is None:
+                    raise ValueError("Hidden states not found in outputs")
+                target_act = hidden_states[0][layer + 1]
+
+        else:
+            # For multiple GPUs
+            if model_type == "llm":
+                outputs = model(**inputs, output_hidden_states=True, return_dict=True, use_cache=False)
+                hidden_states = outputs.hidden_states
+                target_act = hidden_states[layer + 1]
+            else:
+                if sae_location != "res":
+                    raise ValueError("Only 'res' SAE location is supported for VLM models at this moment.")
+
+                outputs = model.generate(
+                    **inputs,
+                    max_new_tokens=1,
+                    return_dict_in_generate=True,
+                    output_scores=True,
+                    output_hidden_states=True,
+                    use_cache=False
+                )
+                hidden_states = outputs.get("hidden_states", None)
+                if hidden_states is None:
+                    raise ValueError("Hidden states not found in outputs")
+                target_act = hidden_states[0][layer + 1]
+
         return target_act
-        
+
     except RuntimeError as e:
-        if "Expected all tensors to be on the same device" in str(e) or "indices should be either on cpu or on the same device" in str(e):
+        error_str = str(e)
+        if ("Expected all tensors to be on the same device" in error_str or
+            "indices should be either on cpu or on the same device" in error_str):
             print(f"Device mismatch detected: {e}")
         raise
+
 
 
 def analyze_with_sae(sae, target_act):

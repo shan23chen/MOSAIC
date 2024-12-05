@@ -74,10 +74,7 @@ def get_hidden_states(
             raise FileNotFoundError(f"CSV file not found at: {path}")
         
         dataset = load_dataset("csv", data_files=path)["train"]
-        print(dataset)
-        
-
-        
+        print(dataset)    
         # Initialize data files dictionary
         # data_files = {}
         # split_mapping = {
@@ -166,7 +163,7 @@ def get_hidden_states(
                     )
 
                 # Extract hidden states for the current batch
-                hidden_states = extract_hidden_states(model, inputs, layer, model_type)
+                hidden_states = extract_hidden_states(model, inputs, layer, model_type, sae_location)
                 # print(type(hidden_states), hidden_states.size())
                 hidden_states = get_valid_token(model_name, model_type, hidden_states, all_tokens)                
                 # move hidden_states to cuda to be the same as sae

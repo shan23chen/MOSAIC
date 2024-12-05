@@ -22,7 +22,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 # Load configuration from YAML file
-with open("config.yaml", "r") as f:
+with open("configc.yaml", "r") as f:
     config = yaml.safe_load(f)
 
 settings = config["settings"]
@@ -76,7 +76,7 @@ def run_extraction(
         "--batch-size",
         str(batch_size),
         "--image-field",
-        "NA",
+        str(dataset["image_field"]) if "image_field" in dataset else "NA",
         "--label-field",
         dataset["label_field"],
         "--act-only",
