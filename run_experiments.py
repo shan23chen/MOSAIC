@@ -22,7 +22,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 # Load configuration from YAML file
-with open("configc.yaml", "r") as f:
+with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
 settings = config["settings"]
@@ -32,6 +32,7 @@ classification_params = config["classification_params"]
 
 # Set environment variables
 os.environ["CUDA_VISIBLE_DEVICES"] = settings["cuda_visible_devices"]
+print(f"Using CUDA_VISIBLE_DEVICES: {os.environ['CUDA_VISIBLE_DEVICES']}")
 
 # Base directories
 BASE_SAVE_DIR = settings["base_save_dir"]
@@ -110,6 +111,7 @@ def run_classification(
     binarize_value,
     test_size,
     tree_depth,
+    bow_baseline,
 ):
     print("===============================================")
     print("Starting classification with configuration:")
@@ -133,8 +135,10 @@ def run_classification(
         model_name,
         "--dataset-name",
         dataset["name"],
-        "--dataset-config-name",
-        dataset.get("config_name", "None"),
+        "--text-field",
+        dataset["text_field"],
+        "--label-field",
+        dataset["label_field"],
         "--model-type",
         model_type,
         "--dataset-split",
@@ -152,8 +156,15 @@ def run_classification(
         "--tree-depth",
         str(tree_depth),
         "--save-plots",
+        "--bow-baseline",
+        bow_baseline,
     ]
 
+    # Add dataset-config-name only if present and not None
+    if "config_name" in dataset and dataset["config_name"]:
+        cmd.extend(["--dataset-config-name", dataset["config_name"]])
+
+    # Add binarize-value if specified
     if binarize_value is not None:
         cmd.extend(["--binarize-value", str(binarize_value)])
 
@@ -179,6 +190,7 @@ def main():
         batch_size = settings["batch_size"]
         test_size = settings["test_size"]
         tree_depth = settings["tree_depth"]
+        bow_baseline = settings["bow_baseline"]
 
         for width in model["widths"]:
             for dataset in datasets:
@@ -210,20 +222,8 @@ def main():
                                 binarize_value,
                                 test_size,
                                 tree_depth,
+                                bow_baseline,
                             )
-                    # Run classification for extra_top_n and extra_binarize_value
-                    run_classification(
-                        model_name,
-                        model_type,
-                        sae_location,
-                        layers,
-                        width,
-                        dataset,
-                        classification_params["extra_top_n"],
-                        classification_params["extra_binarize_value"],
-                        test_size,
-                        tree_depth,
-                    )
 
     print(f"All processes completed at: {subprocess.getoutput('date')}")
 
