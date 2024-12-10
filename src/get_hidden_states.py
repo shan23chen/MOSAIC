@@ -10,6 +10,7 @@ import math
 import gc
 from datasets import concatenate_datasets
 import os
+from transformers import AutoConfig
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 # retrieve_all_tokens = True
@@ -18,8 +19,10 @@ def get_valid_token(model_name, model_type, hidden_states, all_tokens):
     if model_type == "vlm":
         if model_name == "Intel/llava-gemma-2b":
             return hidden_states[:, 4:580, :]
-        elif model_name == "google/paligemma-3b-mix-224":
-            return hidden_states[:, 0:256, :]
+        elif "paligemma" in model_name:
+            config = AutoConfig.from_pretrained(model_name)
+            image_tokens_num = config.vision_config.num_image_tokens
+            return hidden_states[:, 0:image_tokens_num, :]
     elif model_type == "llm" and all_tokens:
         # get all tokens' specific layer's hidden states
         return hidden_states
@@ -27,7 +30,6 @@ def get_valid_token(model_name, model_type, hidden_states, all_tokens):
         # get only the last token's specific layer's hidden states
         # default setting for causal language models
         return hidden_states[:, -1:, :]
-
 
 
 def get_hidden_states(

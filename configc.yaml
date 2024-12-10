@@ -1,17 +1,21 @@
 settings:
   base_save_dir: "./output/activations"
   base_classify_dir: "./output/classifications"
-  batch_size: 80
+  batch_size: 8
   model_type: "vlm"
   sae_location: "res"
   test_size: 0.2
   tree_depth: 5
   act_only: True
-  cuda_visible_devices: "1,2"
+  cuda_visible_devices: "0,1"
 
 models:
-  - name: "Intel/llava-gemma-2b"
-    layers: [6, 10, 17]
+  # - name: "Intel/llava-gemma-2b"
+  #   layers: [6, 10, 17]
+  #   widths: ["16k"]
+
+  - name: "google/paligemma2-3b-pt-224"
+    layers: [5, 12, 19]
     widths: ["16k"]
 
   # - name: "google/gemma-2-2b"

@@ -107,6 +107,19 @@ def load_models_and_tokenizer(
             sae_id=feature_id,
             device=device,
         )
+    elif model_type == "vlm" and "paligemma2" in checkpoint.lower():
+        sae_location, feature_id, _ = get_sae_config(
+            checkpoint, layer, sae_location, width
+        )
+
+        logging.info(
+            f"Loading SAE model from release {sae_location}, feature {feature_id}"
+        )
+        sae, _, _ = SAE.from_pretrained(
+            release=f"{sae_location}",
+            sae_id=feature_id,
+            device=device,
+        )
 
     else:
         if "it" in checkpoint.lower():
@@ -133,6 +146,13 @@ def get_sae_config(
     Generate SAE release name, feature ID, and path to feature explanations.
     """
     model_name = model_name.lower()
+    if "paligemma2-3b" in model_name:
+        model_name = "google/gemma-2-2b"
+    elif "paligemma2-10b" in model_name:
+        model_name = "google/gemma-2-9b"
+    elif "paligemma2-10b-it" in model_name:
+        ## this is not right
+        model_name = "google/gemma-2-9b-it"
 
     # Configuration dictionary for different model architectures
     model_configs = {
@@ -237,17 +257,23 @@ def prepare_image_inputs(images, texts, processor, device):
     if not isinstance(texts, list):
         texts = [texts] * len(images)
     prompts = []
-    for text in texts:
-        sanitized_text = text.strip().replace("\n", " ")
-        prompt = processor.tokenizer.apply_chat_template(
-            [{"role": "user", "content": "<image>" + sanitized_text}],
-            tokenize=False,
-            add_generation_prompt=True,
+    if "Gemma" in processor.tokenizer_class[0]:
+        inputs = processor(
+        text=texts, images=list(images), return_tensors="pt", padding=True
+            ).to(torch.bfloat16)
+        return inputs
+    else:
+        for text in texts:
+            sanitized_text = text.strip().replace("\n", " ")
+            prompt = processor.tokenizer.apply_chat_template(
+                [{"role": "user", "content": "<image>" + sanitized_text}],
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            prompts.append(prompt)
+        inputs = processor(
+            text=prompts, images=list(images), return_tensors="pt", padding=True
         )
-        prompts.append(prompt)
-    inputs = processor(
-        text=prompts, images=list(images), return_tensors="pt", padding=True
-    )
     return inputs
 
 
@@ -275,7 +301,6 @@ def extract_hidden_states(model, inputs, layer, model_type, sae_location):
                     return_dict_in_generate=True,
                     output_scores=True,
                     output_hidden_states=True,
-                    use_cache=False
                 )
                 hidden_states = outputs.get("hidden_states", None)
                 if hidden_states is None:
@@ -298,7 +323,6 @@ def extract_hidden_states(model, inputs, layer, model_type, sae_location):
                     return_dict_in_generate=True,
                     output_scores=True,
                     output_hidden_states=True,
-                    use_cache=False
                 )
                 hidden_states = outputs.get("hidden_states", None)
                 if hidden_states is None:
