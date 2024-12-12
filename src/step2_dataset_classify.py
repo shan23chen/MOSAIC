@@ -205,6 +205,20 @@ def main():
                     sae_id=feature_id,
                     device=device,
                 )
+            
+            elif args.model_type == "vlm" and "paligemma2" in args.model_name.lower():
+                sae_location, feature_id, explanation_path = get_sae_config(
+                    args.model_name, layer, args.sae_location, args.width
+                )
+
+                logging.info(
+                    f"Loading SAE model from release {sae_location}, feature {feature_id}"
+                )
+                sae, cfg_dict, _ = SAE.from_pretrained(
+                    release=f"{sae_location}",
+                    sae_id=feature_id,
+                    device=device,
+                )
 
             else:
                 if "it" in args.model_name.lower():
