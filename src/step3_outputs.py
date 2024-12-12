@@ -40,7 +40,6 @@ class EvalConfig:
     eval_type: str
     scorer_name: str
     scorer_args: Dict[str, Any]
-    log_dir: str  # Added log_dir
     choice_columns: Optional[List[str]] = None
 
 
@@ -92,15 +91,6 @@ def parse_arguments():
         type=int,
         help="Number of samples to evaluate",
     )
-
-    # Added log directory argument
-    parser.add_argument(
-        "--log-dir",
-        type=str,
-        required=True,
-        help="Directory for storing evaluation logs",
-    )
-
     # Evaluation configuration
     parser.add_argument(
         "--system-prompt",
@@ -165,7 +155,6 @@ def parse_arguments():
         eval_type=args.eval_type,
         scorer_name=args.scorer,
         scorer_args=scorer_args,
-        log_dir=args.log_dir,
         choice_columns=choice_columns,
     )
 
@@ -224,7 +213,8 @@ def process_dataset_samples(config: EvalConfig) -> List[Sample]:
             # Check if the model is Gemma
             if "gemma" in config.model.lower():
                 # For Gemma, include system prompt in the user message
-                if config.context_column:
+                # if config.context_column and not none
+                if config.context_column and config.context_column != "none":
                     user_content = f"{config.system_prompt}\n\n{str(item[config.context_column])}\n\n{question}"
                 else:
                     user_content = f"{config.system_prompt}\n\n{question}"
@@ -260,7 +250,7 @@ def process_dataset_samples(config: EvalConfig) -> List[Sample]:
         else:
             # Similar logic for open-ended questions
             if "gemma" in config.model.lower():
-                if config.context_column:
+                if config.context_column and config.context_column != "none":
                     user_content = f"{config.system_prompt}\n\n{str(item[config.context_column])}\n\n{str(item[config.input_column])}"
                 else:
                     user_content = (
@@ -333,7 +323,8 @@ def main():
         "model": config.model,
         "model_base_url": config.model_base_url,
         "max_connections": config.max_connections,
-        "log_dir": config.log_dir,
+        "device": "0,1",
+        "gpu_memory_utilization": 0.95,
     }
 
     # Run evaluation
