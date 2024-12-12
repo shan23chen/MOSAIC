@@ -5,6 +5,7 @@ from sklearn.preprocessing import (
     LabelEncoder,
     MinMaxScaler,
 )
+import shap
 from sklearn.model_selection import (
     train_test_split,
     GridSearchCV,
@@ -32,7 +33,7 @@ import warnings
 from dataclasses import dataclass
 import json
 import joblib
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional
 from sklearn.decomposition import PCA
 import umap
 import matplotlib.pyplot as plt
@@ -44,6 +45,18 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from sklearn.preprocessing import label_binarize
 from utils import convert_to_serializable
+from datasets import load_dataset
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    classification_report,
+    accuracy_score,
+    roc_auc_score,
+    roc_curve,
+    auc,
+)
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import label_binarize
 
 
 @dataclass
@@ -148,9 +161,11 @@ class ModelTrainer:
         return metrics
 
     def train_linear_probe(
-        self, df, hidden=True, binarize_value=None
+        self, df, hidden=True, binarize_value=None, compute_shap=False
     ) -> Dict[str, Any]:
-        """Train an optimized linear probe classifier with proper binary/multiclass handling."""
+        """Train an optimized linear probe classifier with k-fold cross-validation (PyTorch based),
+        and integrate SHAP explanations for the final trained model.
+        """
         logging.info("Training linear probe classifier...")
 
         # Prepare data
@@ -178,9 +193,10 @@ class ModelTrainer:
             stratify=y,
         )
 
-        # Further split training data into training and validation sets
+        # Further split training data into training and validation sets for final model training
+        # (This validation set is used for the final model, not for cross-validation)
         validation_size = self.config.validation_size
-        X_train, X_val, y_train, y_val = train_test_split(
+        X_train_full, X_val_full, y_train_full, y_val_full = train_test_split(
             X_temp,
             y_temp,
             test_size=validation_size / (1 - self.config.test_size),
@@ -191,21 +207,169 @@ class ModelTrainer:
         # Device configuration
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # Compute class weights
-        class_weights = compute_class_weights(y_train, classes)
+        # ============================================================
+        # K-fold cross-validation using PyTorch
+        # We will perform K-fold CV on the (X_temp, y_temp) data which excludes the test set.
+        # For each fold, we train a linear probe model and evaluate it on the validation fold.
+        # ============================================================
+        kfold = StratifiedKFold(
+            n_splits=self.config.cv_folds,
+            shuffle=True,
+            random_state=self.config.random_state,
+        )
+
+        cv_accuracies = []
+        for fold_idx, (train_idx, val_idx) in enumerate(kfold.split(X_temp, y_temp)):
+            # Get fold data
+            X_train_fold = X_temp[train_idx]
+            y_train_fold = y_temp[train_idx]
+            X_val_fold = X_temp[val_idx]
+            y_val_fold = y_temp[val_idx]
+
+            # Compute class weights for this fold
+            class_weights_fold = compute_class_weights(y_train_fold, classes)
+            class_weights_tensor_fold = torch.tensor(
+                class_weights_fold, dtype=torch.float32
+            ).to(device)
+
+            # Convert to tensors
+            X_train_fold_tensor = torch.tensor(X_train_fold.astype("float32"))
+            y_train_fold_tensor = torch.tensor(y_train_fold.astype("int64"))
+            X_val_fold_tensor = torch.tensor(X_val_fold.astype("float32"))
+            y_val_fold_tensor = torch.tensor(y_val_fold.astype("int64"))
+
+            # Create datasets and loaders for this fold
+            train_fold_dataset = TensorDataset(X_train_fold_tensor, y_train_fold_tensor)
+            val_fold_dataset = TensorDataset(X_val_fold_tensor, y_val_fold_tensor)
+
+            train_fold_loader = DataLoader(
+                train_fold_dataset, batch_size=self.config.batch_size, shuffle=True
+            )
+            val_fold_loader = DataLoader(
+                val_fold_dataset, batch_size=self.config.batch_size
+            )
+
+            # Define the linear probe model for this fold
+            input_dim = X_train_fold.shape[1]
+            fold_model = nn.Linear(input_dim, n_classes).to(device)
+
+            # Loss and optimizer
+            criterion_fold = nn.CrossEntropyLoss(weight=class_weights_tensor_fold)
+            optimizer_fold = optim.Adam(
+                fold_model.parameters(),
+                lr=self.config.learning_rate,
+                weight_decay=self.config.weight_decay,
+            )
+
+            # Learning rate scheduler for fold
+            scheduler_fold = optim.lr_scheduler.StepLR(
+                optimizer_fold,
+                step_size=self.config.lr_scheduler_step_size,
+                gamma=self.config.lr_scheduler_gamma,
+            )
+
+            # Training loop with early stopping for this fold
+            num_epochs = self.config.num_epochs
+            patience = self.config.patience
+            best_val_loss = float("inf")
+            epochs_no_improve = 0
+            best_model_state_fold = None
+
+            for epoch in range(num_epochs):
+                # Training phase
+                fold_model.train()
+                train_epoch_loss = 0.0
+                for batch_features, batch_labels in train_fold_loader:
+                    batch_features, batch_labels = batch_features.to(
+                        device
+                    ), batch_labels.to(device)
+
+                    # Forward
+                    outputs = fold_model(batch_features)
+                    loss = criterion_fold(outputs, batch_labels)
+
+                    # Backward
+                    optimizer_fold.zero_grad()
+                    loss.backward()
+                    optimizer_fold.step()
+
+                    train_epoch_loss += loss.item()
+
+                # Validation phase
+                fold_model.eval()
+                val_epoch_loss = 0.0
+                val_correct = 0
+                val_total = 0
+                with torch.no_grad():
+                    for batch_features, batch_labels in val_fold_loader:
+                        batch_features, batch_labels = batch_features.to(
+                            device
+                        ), batch_labels.to(device)
+                        outputs = fold_model(batch_features)
+                        loss = criterion_fold(outputs, batch_labels)
+                        val_epoch_loss += loss.item()
+
+                        # Accuracy
+                        _, predicted = torch.max(outputs.data, 1)
+                        val_total += batch_labels.size(0)
+                        val_correct += (predicted == batch_labels).sum().item()
+
+                train_epoch_loss /= len(train_fold_loader)
+                val_epoch_loss /= len(val_fold_loader)
+                val_accuracy = val_correct / val_total
+
+                scheduler_fold.step()
+
+                # Early stopping
+                if val_epoch_loss < best_val_loss:
+                    best_val_loss = val_epoch_loss
+                    epochs_no_improve = 0
+                    best_model_state_fold = fold_model.state_dict()
+                else:
+                    epochs_no_improve += 1
+                    if epochs_no_improve >= patience:
+                        break
+
+            # Load best fold model
+            if best_model_state_fold is not None:
+                fold_model.load_state_dict(best_model_state_fold)
+
+            # Evaluate fold model on validation set (final metric for this fold)
+            fold_model.eval()
+            val_correct = 0
+            val_total = 0
+            with torch.no_grad():
+                for batch_features, batch_labels in val_fold_loader:
+                    batch_features, batch_labels = batch_features.to(
+                        device
+                    ), batch_labels.to(device)
+                    outputs = fold_model(batch_features)
+                    _, predicted = torch.max(outputs.data, 1)
+                    val_total += batch_labels.size(0)
+                    val_correct += (predicted == batch_labels).sum().item()
+            fold_val_accuracy = val_correct / val_total
+            cv_accuracies.append(fold_val_accuracy)
+            logging.info(
+                f"Fold {fold_idx+1}/{self.config.cv_folds} Accuracy: {fold_val_accuracy:.4f}"
+            )
+
+        # Aggregate CV results
+        cv_mean = float(np.mean(cv_accuracies))
+        cv_std = float(np.std(cv_accuracies))
+
+        # Now train final model on the full training (X_train_full, y_train_full) + val split (X_val_full, y_val_full)
+        class_weights = compute_class_weights(y_train_full, classes)
         class_weights_tensor = torch.tensor(class_weights, dtype=torch.float32).to(
             device
         )
 
-        # Convert data to PyTorch tensors
-        X_train_tensor = torch.tensor(X_train.astype("float32"))
-        y_train_tensor = torch.tensor(y_train.astype("int64"))
-        X_val_tensor = torch.tensor(X_val.astype("float32"))
-        y_val_tensor = torch.tensor(y_val.astype("int64"))
+        X_train_tensor = torch.tensor(X_train_full.astype("float32"))
+        y_train_tensor = torch.tensor(y_train_full.astype("int64"))
+        X_val_tensor = torch.tensor(X_val_full.astype("float32"))
+        y_val_tensor = torch.tensor(y_val_full.astype("int64"))
         X_test_tensor = torch.tensor(X_test.astype("float32"))
         y_test_tensor = torch.tensor(y_test.astype("int64"))
 
-        # Create datasets and data loaders
         train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
         val_dataset = TensorDataset(X_val_tensor, y_val_tensor)
         test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
@@ -216,26 +380,21 @@ class ModelTrainer:
         val_loader = DataLoader(val_dataset, batch_size=self.config.batch_size)
         test_loader = DataLoader(test_dataset, batch_size=self.config.batch_size)
 
-        # Define the linear probe model
-        input_dim = X_train.shape[1]
+        # Final model training
+        input_dim = X_train_full.shape[1]
         model = nn.Linear(input_dim, n_classes).to(device)
-
-        # Loss function and optimizer
         criterion = nn.CrossEntropyLoss(weight=class_weights_tensor)
         optimizer = optim.Adam(
             model.parameters(),
             lr=self.config.learning_rate,
             weight_decay=self.config.weight_decay,
         )
-
-        # Learning rate scheduler
         scheduler = optim.lr_scheduler.StepLR(
             optimizer,
             step_size=self.config.lr_scheduler_step_size,
             gamma=self.config.lr_scheduler_gamma,
         )
 
-        # Training loop with early stopping
         num_epochs = self.config.num_epochs
         patience = self.config.patience
         best_val_loss = float("inf")
@@ -250,16 +409,11 @@ class ModelTrainer:
                 batch_features, batch_labels = batch_features.to(
                     device
                 ), batch_labels.to(device)
-
-                # Forward pass
                 outputs = model(batch_features)
                 loss = criterion(outputs, batch_labels)
-
-                # Backward pass and optimization
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-
                 train_epoch_loss += loss.item()
 
             # Validation phase
@@ -270,16 +424,13 @@ class ModelTrainer:
                     batch_features, batch_labels = batch_features.to(
                         device
                     ), batch_labels.to(device)
-
                     outputs = model(batch_features)
                     loss = criterion(outputs, batch_labels)
                     val_epoch_loss += loss.item()
 
-            # Average losses
             train_epoch_loss /= len(train_loader)
             val_epoch_loss /= len(val_loader)
 
-            # Step the learning rate scheduler
             scheduler.step()
 
             logging.info(
@@ -289,7 +440,7 @@ class ModelTrainer:
                 f"Learning Rate: {scheduler.get_last_lr()[0]:.6f}"
             )
 
-            # Early stopping based on validation loss
+            # Early stopping
             if val_epoch_loss < best_val_loss:
                 best_val_loss = val_epoch_loss
                 epochs_no_improve = 0
@@ -300,7 +451,6 @@ class ModelTrainer:
                     logging.info("Early stopping triggered.")
                     break
 
-        # Load the best model
         if best_model_state is not None:
             model.load_state_dict(best_model_state)
         else:
@@ -324,29 +474,13 @@ class ModelTrainer:
         y_pred = np.array(y_pred)
         y_prob = np.array(y_prob)
 
-        # Compute metrics
+        # Compute metrics on the held-out test set
         print("Computing metrics...")
         metrics = self.compute_metrics(y_test, y_pred, y_prob, classes, class_labels)
 
         # logging best accuracy
-        logging.info(f"Linear Probe Best Accuracy: {metrics['accuracy']:.4f}")
-
-        # Cross-validation scores
-        print("Computing cross-validation scores...")
-        stratified_kfold = StratifiedKFold(
-            n_splits=self.config.cv_folds,
-            shuffle=True,
-            random_state=self.config.random_state,
-        )
-        cv_scores = cross_val_score(
-            LogisticRegression(
-                random_state=self.config.random_state,
-                max_iter=self.config.max_iter,
-                class_weight="balanced",
-            ),
-            X_train,
-            y_train,
-            cv=stratified_kfold,
+        logging.info(
+            f"Linear Probe Best Accuracy on Test Set: {metrics['accuracy']:.4f}"
         )
 
         # Get feature importance (coefficients)
@@ -358,7 +492,46 @@ class ModelTrainer:
                 for i in range(n_classes)
             ]
 
-        # Return results
+        # =========================
+        # SHAP Integration
+        # =========================
+
+        # Initialize empty list as default
+        shap_values_list = []
+
+        # Add compute_shap parameter with default False
+        if compute_shap:
+            # We'll take a small subset of the training data as background
+            num_background = min(100, X_train_tensor.shape[0])
+            background_data = X_train_tensor[:num_background].cpu().numpy()
+
+            # Define prediction function for SHAP
+            def model_predict(x: np.ndarray) -> np.ndarray:
+                model.eval()
+                x_tensor = torch.tensor(x, dtype=torch.float32).to(device)
+                with torch.no_grad():
+                    outputs = model(x_tensor)
+                    probs = F.softmax(outputs, dim=1).cpu().numpy()
+                return probs
+
+            # Create SHAP explainer
+            # Increase max_evals to a number >= 2 * num_features + 1
+            num_features = X_train_full.shape[1]
+            required_min_evals = 2 * num_features + 1
+            explainer = shap.Explainer(
+                model_predict,
+                background_data,
+                algorithm="permutation",
+                max_evals=required_min_evals,
+            )
+
+            # Compute SHAP values for the test set
+            X_test_np = X_test_tensor.cpu().numpy()
+            shap_values = explainer(X_test_np)
+
+            # Convert SHAP values to list
+            shap_values_list = shap_values.values.tolist()
+
         return {
             "model": model,
             "accuracy": metrics["accuracy"],
@@ -367,13 +540,14 @@ class ModelTrainer:
             "n_classes": n_classes,
             "metrics": metrics,
             "cv_scores": {
-                "mean": float(cv_scores.mean()),
-                "std": float(cv_scores.std()),
-                "scores": cv_scores.tolist(),
+                "mean": cv_mean,
+                "std": cv_std,
+                "scores": cv_accuracies,
             },
             "feature_importance": {"coefficients": coefficients},
             "label_encoder": self.label_encoder,
             "hidden": hidden,
+            "shap_values": shap_values_list,
         }
 
     def train_decision_tree(
@@ -675,20 +849,230 @@ def compute_class_weights(y: np.ndarray, classes: np.ndarray) -> np.ndarray:
     return class_weights
 
 
-def run_training_pipeline(
-    df: pd.DataFrame,
-    config: TrainingConfig,
-    output_dir: Path,
-    model_name: str,
-    layer: str,
+# def run_training_pipeline(
+#     df: pd.DataFrame,
+#     config: TrainingConfig,
+#     output_dir: Path,
+#     model_name: str,
+#     layer: str,
+# ):
+#     """Run the complete training pipeline."""
+#     trainer = ModelTrainer(config)
+
+#     linear_results = trainer.train_linear_probe(df)
+#     trainer.save_results(linear_results, output_dir, model_name, layer, "linear_probe")
+
+#     tree_results = trainer.train_decision_tree(df)
+#     trainer.save_results(tree_results, output_dir, model_name, layer, "decision_tree")
+
+#     return linear_results, tree_results
+
+
+def train_bow_baseline(
+    dataset_name: str,
+    dataset_split: str,
+    text_field: str,
+    label_field: str,
+    config_name: Optional[str] = None,
+    test_size: float = 0.2,
+    random_state: int = 42,
+    max_iter: int = 10000,
+    ngram_range: Tuple[int, int] = (1, 2),
+    max_features: int = 20000,
+    stop_words: Union[str, None] = "english",
+    use_balanced_class_weight: bool = True,
 ):
-    """Run the complete training pipeline."""
-    trainer = ModelTrainer(config)
+    """
+    Train and evaluate a baseline classifier using TF-IDF features on a dataset
+    loaded from the Hugging Face Hub.
 
-    linear_results = trainer.train_linear_probe(df)
-    trainer.save_results(linear_results, output_dir, model_name, layer, "linear_probe")
+    Parameters
+    ----------
+    dataset_name : str
+        Name of the Hugging Face dataset to load.
+    dataset_split : str
+        The split of the dataset to load (e.g., "train", "test").
+    text_field : str
+        The name of the column containing the text data.
+    label_field : str
+        The name of the column containing the label.
+    config_name : Optional[str], default=None
+        Specific configuration name of the dataset if needed.
+    test_size : float, default=0.2
+        Proportion of the dataset to include in the test split.
+    random_state : int, default=42
+        Random seed for reproducibility.
+    max_iter : int, default=10000
+        Maximum number of iterations for the Logistic Regression solver.
+    ngram_range : Tuple[int, int], default=(1, 2)
+        The lower and upper boundary of the n-grams considered in TF-IDF vectorization.
+    max_features : int, default=20000
+        Maximum number of features to consider in TF-IDF.
+    stop_words : Union[str, None], default="english"
+        Stop words to use for TF-IDF vectorization. Use "english", None, or a custom list.
+    use_balanced_class_weight : bool, default=True
+        Whether to use balanced class weights in the Logistic Regression.
 
-    tree_results = trainer.train_decision_tree(df)
-    trainer.save_results(tree_results, output_dir, model_name, layer, "decision_tree")
+    Returns
+    -------
+    dict
+        {
+            "model": Trained LogisticRegression model,
+            "vectorizer": Fitted TfidfVectorizer,
+            "metrics": dict with keys: "accuracy", "classification_report",
+                      "classes", "n_classes", "roc_auc", "roc_curve"
+        }
 
-    return linear_results, tree_results
+    Notes
+    -----
+    This function uses a simple logistic regression classifier on top of TF-IDF vectorized text.
+    It's intended as a baseline or linear probe.
+    """
+
+    # Load dataset from Hugging Face
+    ds = load_dataset(dataset_name, split=dataset_split, name=config_name)
+    df = ds.to_pandas()
+
+    # Validate columns
+    if text_field not in df.columns:
+        raise ValueError(
+            f"The specified text_field '{text_field}' does not exist in the dataset."
+        )
+    if label_field not in df.columns:
+        raise ValueError(
+            f"The specified label_field '{label_field}' does not exist in the dataset."
+        )
+
+    if df.empty:
+        raise ValueError("The dataset is empty.")
+
+    # Extract text and labels
+    texts = df[text_field].astype(str).tolist()
+    labels = df[label_field].values
+
+    # Ensure we have at least two samples and preferably multiple classes
+    unique_labels = np.unique(labels)
+    if len(unique_labels) < 2:
+        warnings.warn(
+            "Only one class present in the data. The model will not generalize."
+        )
+    if len(texts) < 2:
+        raise ValueError("Not enough data samples.")
+
+    # Attempt train/test split
+    try:
+        X_train_text, X_test_text, y_train, y_test = train_test_split(
+            texts,
+            labels,
+            test_size=test_size,
+            random_state=random_state,
+            stratify=labels,
+        )
+    except ValueError as e:
+        raise ValueError(f"Failed to split dataset: {e}")
+
+    # Check for classes again after splitting (in rare cases stratify might fail)
+    train_classes = np.unique(y_train)
+    test_classes = np.unique(y_test)
+    if len(train_classes) < 2:
+        warnings.warn("Training set contains only one class.")
+    if len(test_classes) < 2:
+        warnings.warn("Test set contains only one class. Metrics may be degenerate.")
+
+    # Map classes to integers for binary tasks
+    if len(unique_labels) == 2:
+        class_to_num = {cls: i for i, cls in enumerate(unique_labels)}
+        y_train = np.array([class_to_num[yt] for yt in y_train])
+        y_test = np.array([class_to_num[yt] for yt in y_test])
+
+    # TF-IDF vectorization
+    vectorizer = TfidfVectorizer(
+        ngram_range=ngram_range, max_features=max_features, stop_words=stop_words
+    )
+    X_train = vectorizer.fit_transform(X_train_text)
+    X_test = vectorizer.transform(X_test_text)
+
+    # Logistic Regression setup
+    class_weight = "balanced" if use_balanced_class_weight else None
+    clf = LogisticRegression(
+        random_state=random_state,
+        max_iter=max_iter,
+        class_weight=class_weight,
+        # Use 'saga' solver if L1 regularization or other advanced methods are needed
+        # Otherwise 'lbfgs' is a good default.
+        solver="lbfgs",
+    )
+
+    # Train model
+    clf.fit(X_train, y_train)
+
+    # Predictions and probabilities
+    y_pred = clf.predict(X_test)
+    y_prob = clf.predict_proba(X_test)
+
+    # Compute accuracy
+    acc = accuracy_score(y_test, y_pred)
+
+    # Convert back to original label space if binary
+    if len(unique_labels) == 2:
+        inv_class_map = {v: k for k, v in class_to_num.items()}
+        y_true_labels = [inv_class_map[yt] for yt in y_test]
+        y_pred_labels = [inv_class_map[yp] for yp in y_pred]
+        report = classification_report(y_true_labels, y_pred_labels, output_dict=True)
+        classes = unique_labels
+    else:
+        # Multiclass
+        classes = unique_labels
+        report = classification_report(y_test, y_pred, output_dict=True)
+
+    metrics = {
+        "accuracy": acc,
+        "classification_report": report,
+        "classes": classes.tolist(),
+        "n_classes": len(classes),
+    }
+
+    # Compute ROC AUC
+    # For binary
+    if len(classes) == 2:
+        try:
+            fpr, tpr, _ = roc_curve(y_test, y_prob[:, 1])
+            metrics["roc_auc"] = auc(fpr, tpr)
+            metrics["roc_curve"] = {"fpr": fpr.tolist(), "tpr": tpr.tolist()}
+        except ValueError as e:
+            # This can happen if only one class is present in y_test
+            metrics["roc_auc"] = None
+            metrics["roc_curve"] = None
+            warnings.warn(f"ROC computation failed: {e}")
+    else:
+        # Multiclass case
+        try:
+            Y_test_bin = label_binarize(y_test, classes=range(len(classes)))
+            roc_auc_dict = {}
+            roc_curve_dict = {}
+            for i, c in enumerate(classes):
+                fpr_c, tpr_c, _ = roc_curve(Y_test_bin[:, i], y_prob[:, i])
+                roc_auc_dict[c] = auc(fpr_c, tpr_c)
+                roc_curve_dict[c] = {"fpr": fpr_c.tolist(), "tpr": tpr_c.tolist()}
+            metrics["roc_auc"] = roc_auc_dict
+            metrics["roc_curve"] = roc_curve_dict
+
+            # Micro-average
+            fpr_micro, tpr_micro, _ = roc_curve(Y_test_bin.ravel(), y_prob.ravel())
+            metrics["roc_auc"]["micro"] = auc(fpr_micro, tpr_micro)
+            metrics["roc_curve"]["micro"] = {
+                "fpr": fpr_micro.tolist(),
+                "tpr": tpr_micro.tolist(),
+            }
+
+            # Macro-average
+            metrics["roc_auc"]["macro"] = roc_auc_score(
+                Y_test_bin, y_prob, average="macro", multi_class="ovr"
+            )
+        except ValueError as e:
+            # In case ROC can't be computed due to class issues
+            metrics["roc_auc"] = None
+            metrics["roc_curve"] = None
+            warnings.warn(f"ROC computation failed for multiclass: {e}")
+
+    return {"model": clf, "vectorizer": vectorizer, "metrics": metrics}

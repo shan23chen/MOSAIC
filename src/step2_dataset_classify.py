@@ -14,7 +14,7 @@ from sort_load_datasets import (
     load_features,
 )
 from utils import convert_to_serializable
-from classifiers import ModelTrainer, TrainingConfig
+from classifiers import ModelTrainer, TrainingConfig, train_bow_baseline
 from utils_dash import NumpyJSONEncoder, prepare_dashboard_data, get_tree_info
 from models import get_sae_config
 from utils import (
@@ -153,6 +153,30 @@ def parse_arguments():
         action="store_true",
         help="Use all tokens for feature extraction",
     )
+    parser.add_argument(
+        "--compute-shap",
+        action="store_true",
+        help="Use all tokens for feature extraction",
+    )
+    parser.add_argument(
+        "--text-field",
+        type=str,
+        default=None,
+        help="Field name for text data in the dataset",
+    )
+    parser.add_argument(
+        "--label-field",
+        type=str,
+        default="label",
+        help="Field name for label data in the dataset",
+    )
+    parser.add_argument(
+        "--bow-baseline",
+        type=str,
+        choices=["True", "False"],
+        default="False",
+        help="Run BOW baseline",
+    )
 
     return parser.parse_args()
 
@@ -274,6 +298,27 @@ def main():
                 cv_folds=args.cv_folds if hasattr(args, "cv_folds") else 5,
             )
 
+            if (
+                args.bow_baseline == "True"
+                and args.dataset_name
+                and args.dataset_split
+                and args.text_field
+                and args.label_field
+            ):
+                print("===== BOW Baseline =====")
+                bow_results = train_bow_baseline(
+                    dataset_name=args.dataset_name,
+                    dataset_split=args.dataset_split,
+                    text_field=args.text_field,
+                    label_field=args.label_field,
+                    config_name=args.dataset_config_name,
+                    test_size=config.test_size,
+                    random_state=config.random_state,
+                )
+                print(
+                    f"BOW Baseline Accuracy: {bow_results['metrics']['accuracy']:.4f}"
+                )
+
             # Initialize model trainer
             trainer = ModelTrainer(config, label_encoder)
 
@@ -284,7 +329,10 @@ def main():
             print("--- Hidden states ---")
             print("Training linear probe on hidden states")
             hidden_linear_results = trainer.train_linear_probe(
-                features, hidden=True, binarize_value=None
+                features,
+                hidden=True,
+                binarize_value=None,
+                compute_shap=args.compute_shap,
             )
             print("Training decision tree on hidden states")
             hidden_tree_results = trainer.train_decision_tree(
@@ -293,7 +341,10 @@ def main():
             print("--- SAE features ---")
             print("Training linear probe on SAE features")
             sae_linear_results = trainer.train_linear_probe(
-                features, hidden=False, binarize_value=binarize_value
+                features,
+                hidden=False,
+                binarize_value=binarize_value,
+                compute_shap=args.compute_shap,
             )
             print("Training decision tree on SAE features")
             sae_tree_results = trainer.train_decision_tree(
@@ -377,6 +428,9 @@ def main():
             )
             os.makedirs(dashboard_save_dir, exist_ok=True)
 
+            if args.bow_baseline == "True":
+                hidden_dashboard_data["bow_baseline"] = bow_results["metrics"]
+                sae_dashboard_data["bow_baseline"] = bow_results["metrics"]
             hidden_dashboard_path = (
                 Path(dashboard_save_dir) / "hidden_classifier_results.json"
             )
