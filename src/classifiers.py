@@ -33,7 +33,7 @@ import warnings
 from dataclasses import dataclass
 import json
 import joblib
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, List, Tuple, Any, Optional, Union
 from sklearn.decomposition import PCA
 import umap
 import matplotlib.pyplot as plt
