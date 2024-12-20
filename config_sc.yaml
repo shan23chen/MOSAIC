@@ -1,0 +1,83 @@
+settings:
+  base_save_dir: "./output/activations"
+  base_classify_dir: "./output/classifications"
+  batch_size: 80
+  model_type: "vlm"
+  sae_location: "res"
+  test_size: 0.2
+  tree_depth: 5
+  act_only: True
+  cuda_visible_devices: "0,1,2"
+  bow_baseline: "False"
+
+models:
+  # - name: "Intel/llava-gemma-2b"
+  #   layers: [6, 10, 17]
+  #   widths: ["16k"]
+
+  # - name: "google/paligemma2-3b-pt-224"
+  #   layers: [5, 12, 19]
+  #   widths: ["16k", "65k"]
+
+  # - name: "google/paligemma2-3b-pt-448"
+  #   layers: [5, 12, 19]
+  #   widths: ["16k", "65k"]
+  - name: "google/paligemma2-3b-pt-224"
+    layers: [12]
+    widths: ["16k", "65k"]
+
+  - name: "google/paligemma2-3b-pt-448"
+    layers: [12]
+    widths: ["16k", "65k"]
+    
+
+datasets:
+  # - name: "renumics/cifar100-enriched"
+  #   config_name: ""
+  #   split: "test"
+  #   text_field: "fine_label_str"
+  #   label_field: "fine_label"
+  #   image_field: "full_image"
+
+  # - name: "zh-plus/tiny-imagenet"
+  #   config_name: ""
+  #   split: "valid"
+  #   text_field: "label"
+  #   label_field: "label"
+  #   image_field: "image"
+
+  - name: "rajistics/indian_food_images"
+    config_name: ""
+    split: "test"
+    text_field: "label"
+    label_field: "label"
+    image_field: "image"
+
+  - name: "rajistics/indian_food_images"
+    config_name: ""
+    split: "train"
+    text_field: "label"
+    label_field: "label"
+    image_field: "image"
+
+  # - name: "nelorth/oxford-flowers"
+  #   config_name: ""
+  #   split: "train"
+  #   text_field: "label"
+  #   label_field: "label"
+  #   image_field: "image"
+
+  # - name: "benjamin-paine/imagenet-1k-256x256"
+  #   config_name: ""
+  #   split: "validation"
+  #   text_field: "user"
+  #   label_field: "label"
+  #   image_field: "image"
+  # - name: 
+
+classification_params:
+  top_n_values: [0, 20, 50]
+  binarize_values: [null, 1.0]
+  extra_top_n: -1
+  extra_binarize_value: null
+
