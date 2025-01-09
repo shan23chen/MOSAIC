@@ -8,58 +8,18 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import itertools
-import logging
 from datetime import datetime
-from typing import Optional, List, Tuple
-from pandas.api.types import CategoricalDtype
 
 
-from src.results_scripts.pooling_utils import plot_pooling_strategies
-from src.results_scripts.scale_utils import plot_sae_across_models_and_widths_by_dataset
-from src.results_scripts.image_utils import (
-    plot_dataset_width_sae,
-)
-
-# -------------------------------------------------------------------------
-# 1) CONFIGURE LOGGING
-# -------------------------------------------------------------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-
-
-def prepare_output_dirs(results_dir: str) -> Tuple[str, str]:
+def extract_scores(dashboard_dir, output_csv):
     """
-    Creates 'tables' and 'figures' subdirectories under results_dir if they do not exist.
-    Returns a tuple of (tables_dir, figures_dir).
-    """
-    tables_dir = os.path.join(results_dir, "tables")
-    figures_dir = os.path.join(results_dir, "figures")
-    os.makedirs(tables_dir, exist_ok=True)
-    os.makedirs(figures_dir, exist_ok=True)
-    return tables_dir, figures_dir
-
-
-def extract_scores(dashboard_dir: str, output_csv: str) -> None:
-    """
-    Traverses the dashboard directory (dashboard_dir), extracts macro avg F1 scores
-    from JSON files, and saves them to a CSV file (output_csv).
-
-    Also handles NaN values or floats in 'binarize_value' by converting them to int
-    (default = 0) when parsing.
-
-    Args:
-        dashboard_dir: Directory containing JSON files with model metrics.
-        output_csv: Output CSV file path.
-    Returns:
-        None. Creates/updates the CSV file with extracted scores.
+    Traverse the dashboard directory, extract macro avg F1 scores from JSON files,
+    and save them to a CSV file. Also handles NaN values or floats in 'binarize_value'
+    by converting them to int (default = 0) when parsing.
     """
     entries_processed = 0
     os.makedirs(os.path.dirname(output_csv), exist_ok=True)
 
-    # Using 'with' to open CSV in write-mode
     with open(output_csv, mode="w", newline="") as csv_file:
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(
@@ -88,7 +48,6 @@ def extract_scores(dashboard_dir: str, output_csv: str) -> None:
             ]
         )
 
-        # Walk through all JSON files under 'dashboard_dir'
         for root, _, files in os.walk(dashboard_dir):
             for file in files:
                 if file.endswith(".json"):
@@ -117,13 +76,12 @@ def extract_scores(dashboard_dir: str, output_csv: str) -> None:
                         last_token = args.get("last_token", "N/A")
 
                         hidden = metadata.get("dataset", {}).get("hidden", "N/A")
-                        # Distinguish "Hidden States" vs. "SAE Features"
                         if hidden:
                             hidden_value = "Hidden States"
                         else:
                             hidden_value = "SAE Features"
 
-                        # Robustly convert binarize_value to int, default=0 on failure
+                        # Robustly convert binarize_value to int, defaulting to 0 on failure
                         if binarize_value == "N/A" or pd.isna(binarize_value):
                             binarize_value = 0
                         else:
@@ -197,172 +155,79 @@ def extract_scores(dashboard_dir: str, output_csv: str) -> None:
                             ]
                         )
                         entries_processed += 1
-
                     except Exception as e:
-                        logging.error(
-                            f"Error processing {json_path}: {e}", exc_info=True
-                        )
+                        print(f"Error processing {json_path}: {e}")
 
-    logging.info(f"Processed {entries_processed} entries.")
-    logging.info(f"Results saved to {output_csv}")
+    print(f"Processed {entries_processed} entries.")
+    print(f"Results saved to {output_csv}")
 
 
-def generate_expected_results(config):
+def check_missing_combinations(df, results_dir):
     """
-    Generates a list of dictionaries representing the expected results
-    based on the YAML configuration.
+    Check for missing combinations of parameters in the CSV.
+
+    1) Gather all unique values for the relevant columns.
+    2) Compute the Cartesian product of these unique values.
+    3) Compare with actual combinations in the dataframe.
+    4) Print and save missing combinations to CSV.
     """
 
-    models = config["models"]
-    datasets = config["datasets"]
-    classification_params = config["classification_params"]
-    settings = config["settings"]
+    columns = [
+        "model_name",
+        "model_type",
+        "sae_location",
+        "layer",
+        "width",
+        "type",
+        "dataset_name",
+        "top_n",
+        "binarize_value",
+        "last_token",
+    ]
 
-    expected_results = []
+    # 1) Get unique values
+    unique_values = {col: df[col].unique() for col in columns}
 
-    for model in models:
-        for layer in model["layers"]:
-            for width in model["widths"]:
-                for dataset in datasets:
-                    for top_n in classification_params["top_n_values"]:
-                        for binarize in classification_params["binarize_values"]:
-                            # We still iterate these 'raw' labels,
-                            # but we will map them below
-                            for hidden_state_type in ["baseline", "sae"]:
-                                # If act_only is True, skip some classification params
-                                if settings["act_only"] == True and (
-                                    top_n != classification_params["top_n_values"][0]
-                                    or binarize
-                                    != classification_params["binarize_values"][0]
-                                ):
-                                    continue
+    # 2) Cartesian product of all unique values
+    all_combos = list(itertools.product(*unique_values.values()))
 
-                                # Map 'baseline' -> 'Hidden States'
-                                # and 'sae' -> 'SAE Features'
-                                if hidden_state_type == "baseline":
-                                    mapped_type = "Hidden States"
-                                else:
-                                    mapped_type = "SAE Features"
+    # 3) Existing combinations in the dataframe
+    existing_combos = set(tuple(row) for row in df[columns].to_numpy())
 
-                                expected_results.append(
-                                    {
-                                        "model_name": model["name"],
-                                        "model_type": settings["model_type"],
-                                        "sae_location": settings["sae_location"],
-                                        "layer": layer,
-                                        "width": width,
-                                        "type": mapped_type,
-                                        "dataset_name": dataset["name"],
-                                        "dataset_config_name": dataset["config_name"],
-                                        "dataset_split": dataset["split"],
-                                        "top_n": top_n,
-                                        "binarize_value": binarize,
-                                        "last_token": True,
-                                    }
-                                )
+    # 4) Determine which combos are missing
+    missing_combos = [combo for combo in all_combos if combo not in existing_combos]
 
-    return expected_results
-
-
-def check_missing_combinations(
-    df: pd.DataFrame, results_dir: str, config_path: str
-) -> None:
-    """
-    Checks for missing combinations of parameters in the DataFrame, comparing
-    against a YAML configuration file, and identifies missing results.
-
-    Saves a CSV file with missing combinations if any.
-
-    Args:
-        df: The DataFrame containing all results.
-        results_dir: Directory to save missing_combinations.csv if missing combos exist.
-        config_path: Path to the YAML configuration file.
-    Returns:
-        None
-    """
-    with open(config_path, "r") as f:
-        config = yaml.safe_load(f)
-
-    df_expected = pd.DataFrame(generate_expected_results(config))
-
-    # Ensure consistent data types for merging
-    df_expected["layer"] = df_expected["layer"].astype(str)
-    df_expected["binarize_value"] = (
-        df_expected["binarize_value"].fillna(0).astype("int64")
-    )  # Fill NA with 0 and cast to int64
-    df["layer"] = df["layer"].astype(str)
-    df["binarize_value"] = (
-        df["binarize_value"].fillna(0).astype("int64")
-    )  # Fill NA with 0 and cast to int64
-
-    # Merge the expected results with the actual results
-    merged_df = pd.merge(
-        df_expected,
-        df,
-        on=[
-            "model_name",
-            "model_type",
-            "sae_location",
-            "layer",
-            "width",
-            "type",
-            "dataset_name",
-            "top_n",
-            "binarize_value",
-            "last_token",
-        ],
-        how="left",
-        indicator=True,
-    )
-
-    # Identify missing combinations
-    missing_combos = merged_df[merged_df["_merge"] == "left_only"].drop(
-        columns=["_merge"]
-    )
-
-    if missing_combos.empty:
-        logging.info("No missing combinations found!")
+    # Print and save the missing combos
+    if len(missing_combos) == 0:
+        print("No missing combinations found!")
     else:
-        logging.info(f"Found {len(missing_combos)} missing combinations.")
+        print(f"Found {len(missing_combos)} missing combinations.")
+        for mc in missing_combos[:10]:  # Just print first 10 for brevity
+            print(mc)
+
+        missing_df = pd.DataFrame(missing_combos, columns=columns)
         output_path = os.path.join(results_dir, "missing_combinations.csv")
-        missing_combos.to_csv(output_path, index=False)
-        logging.info(f"Missing combinations saved to: {output_path}")
-
-        # Summarize missing combinations
-        summary = (
-            missing_combos.groupby(["model_name", "dataset_name"])
-            .size()
-            .reset_index(name="missing_count")
-        )
-
-        print("\nSummary of Missing Combinations:")
-        for index, row in summary.iterrows():
-            print(
-                f"Model: {row['model_name']}, Dataset: {row['dataset_name']} - Missing: {row['missing_count']}"
-            )
-
-        summary_output_path = os.path.join(
-            results_dir, "missing_combinations_summary.csv"
-        )
-        summary.to_csv(summary_output_path, index=False)
-        logging.info(f"Summary of missing combinations saved to: {summary_output_path}")
+        missing_df.to_csv(output_path, index=False)
+        print(f"Missing combinations saved to: {output_path}")
 
 
-def sae_hyperparam_analysis(df: pd.DataFrame, results_dir: str) -> None:
+def sae_hyperparam_analysis(df, results_dir):
     """
-    Perform SAE hyperparameter exploration. Generates summary statistics and
-    bar plots showing the impact of binarize_value and top_n.
-
-    Args:
-        df: DataFrame containing classification results.
-        results_dir: Base directory to save tables and figures.
+    Perform SAE hyperparameter exploration:
+    - Filter for classification datasets of interest if needed.
+    - Compare different binarize_value, top_n, etc.
+    - Produce grouped summary stats and save results/figures.
     """
-    tables_dir, figures_dir = prepare_output_dirs(results_dir)
+    # Prepare subfolders for outputs
+    tables_dir = os.path.join(results_dir, "tables")
+    figures_dir = os.path.join(results_dir, "figures")
+    os.makedirs(tables_dir, exist_ok=True)
+    os.makedirs(figures_dir, exist_ok=True)
 
     # Filter for SAE Features
     sae_df = df[df["type"] == "SAE Features"].copy()
 
-    # Group by some hyperparams
+    # Example grouping by hyperparameters
     summary_cols = ["binarize_value", "top_n", "layer", "width"]
     grouped = (
         sae_df.groupby(summary_cols)["linear_macro_f1_score"]
@@ -371,16 +236,16 @@ def sae_hyperparam_analysis(df: pd.DataFrame, results_dir: str) -> None:
     )
     grouped.rename(columns={"mean": "F1_mean", "std": "F1_std"}, inplace=True)
 
+    # Sort and save top-15 as a CSV table
     grouped_sorted = grouped.sort_values(by="F1_mean", ascending=False).head(15)
     grouped_sorted.to_csv(
         os.path.join(tables_dir, "SAE_hyperparam_top15.csv"), index=False
     )
-    logging.info(
-        f"SAE hyperparam analysis saved top-15 to {tables_dir}/SAE_hyperparam_top15.csv"
-    )
 
+    # Seaborn styling
     sns.set_theme(style="whitegrid")
 
+    # Figure: Impact of Binarization
     plt.figure(figsize=(10, 6))
     sns.barplot(data=sae_df, x="binarize_value", y="linear_macro_f1_score", ci="sd")
     plt.title("SAE Hyperparam: Impact of Binarization (Linear Macro F1 Score)")
@@ -390,6 +255,7 @@ def sae_hyperparam_analysis(df: pd.DataFrame, results_dir: str) -> None:
     plt.savefig(os.path.join(figures_dir, "sae_binarization_impact.png"), dpi=300)
     plt.close()
 
+    # Figure: Impact of top_n
     plt.figure(figsize=(10, 6))
     sns.barplot(data=sae_df, x="top_n", y="linear_macro_f1_score", ci="sd")
     plt.title("SAE Hyperparam: Impact of top_n (Linear Macro F1 Score)")
@@ -399,64 +265,31 @@ def sae_hyperparam_analysis(df: pd.DataFrame, results_dir: str) -> None:
     plt.savefig(os.path.join(figures_dir, "sae_topn_impact.png"), dpi=300)
     plt.close()
 
-    logging.info("SAE hyperparameter analysis completed and figures generated.")
 
-
-def compare_sae_to_baselines(df: pd.DataFrame, results_dir: str) -> None:
+def compare_sae_to_baselines(df, results_dir):
     """
-    Compare best SAE hyperparameters per dataset to baseline methods (e.g., Hidden States),
-    using the linear_macro_f1_score as the primary metric.  This version specifically
-    addresses the prompt's concerns about potential information loss during merging and
-    hyperparameter selection.
-
-    Args:
-        df: DataFrame containing classification results.
-        results_dir: Base directory to save tables and figures.
+    Compare best SAE hyperparameters to baseline methods (Hidden States, TFIDF, etc.)
+    using linear_macro_f1_score as the primary metric.
+    - Saves summary tables and figures in subfolders under results_dir.
     """
-    tables_dir, figures_dir = prepare_output_dirs(results_dir)
+    # Prepare subfolders for outputs
+    tables_dir = os.path.join(results_dir, "tables")
+    figures_dir = os.path.join(results_dir, "figures")
+    os.makedirs(tables_dir, exist_ok=True)
+    os.makedirs(figures_dir, exist_ok=True)
 
     # Filter to SAE rows
     sae_df = df[df["type"] == "SAE Features"].copy()
-
-    # **1. Identify best SAE hyperparameters per dataset per layer**
-    # This ensures we don't lose layer-specific performance during hyperparameter selection
-    best_sae_per_layer = sae_df.loc[
-        sae_df.groupby(["dataset_name", "layer"])["linear_macro_f1_score"].idxmax()
+    # Identify best SAE hyperparameters per dataset
+    best_sae = sae_df.loc[
+        sae_df.groupby("dataset_name")["linear_macro_f1_score"].idxmax()
     ].copy()
 
-    # **2. Find the overall best layer per dataset**
-    best_layer_per_dataset = best_sae_per_layer.loc[
-        best_sae_per_layer.groupby("dataset_name")["linear_macro_f1_score"].idxmax()
-    ][["dataset_name", "layer"]].copy()
-
-    # **3. Merge to get the best hyperparameters for the best layer**
-    best_sae = pd.merge(
-        best_layer_per_dataset,
-        best_sae_per_layer,
-        on=["dataset_name", "layer"],
-        how="left",
-    )
-
-    # Baseline methods (Hidden States, TFIDF, etc.)
+    # Baseline methods
     baseline_df = df[df["type"].isin(["Hidden States", "TFIDF"])].copy()
+    compare_df = pd.concat([best_sae, baseline_df], ignore_index=True)
 
-    # **4. Find best layer for Hidden States**
-    best_hidden_states = (
-        baseline_df[baseline_df["type"] == "Hidden States"]
-        .loc[
-            baseline_df[baseline_df["type"] == "Hidden States"]
-            .groupby("dataset_name")["linear_macro_f1_score"]
-            .idxmax()
-        ]
-        .copy()
-    )
-
-    # **5. Recombine best_sae, best_hidden_states, and tfidf for comparison**
-    compare_df = pd.concat(
-        [best_sae, best_hidden_states, baseline_df[baseline_df["type"] == "TFIDF"]],
-        ignore_index=True,
-    )
-
+    # Save best SAE table
     best_sae_table = best_sae[
         [
             "dataset_name",
@@ -469,6 +302,7 @@ def compare_sae_to_baselines(df: pd.DataFrame, results_dir: str) -> None:
     ].sort_values("dataset_name")
     best_sae_table.to_csv(os.path.join(tables_dir, "best_sae_table.csv"), index=False)
 
+    # Save comparison (SAE + Baselines)
     compare_df_table = compare_df[
         ["dataset_name", "type", "layer", "linear_macro_f1_score"]
     ].sort_values(["dataset_name", "type"])
@@ -476,6 +310,7 @@ def compare_sae_to_baselines(df: pd.DataFrame, results_dir: str) -> None:
         os.path.join(tables_dir, "compare_sae_baselines.csv"), index=False
     )
 
+    # Bar plot: Best SAE vs. Baselines by dataset
     sns.set_theme(style="whitegrid")
     plt.figure(figsize=(12, 6))
     sns.barplot(
@@ -483,7 +318,7 @@ def compare_sae_to_baselines(df: pd.DataFrame, results_dir: str) -> None:
         x="dataset_name",
         y="linear_macro_f1_score",
         hue="type",
-        errorbar="sd",
+        ci="sd",
     )
     plt.title("Best SAE Hyperparameters vs. Baselines (Linear Macro F1 Score)")
     plt.xlabel("Dataset Name")
@@ -494,9 +329,7 @@ def compare_sae_to_baselines(df: pd.DataFrame, results_dir: str) -> None:
     plt.savefig(os.path.join(figures_dir, "sae_vs_baseline_bar.png"), dpi=300)
     plt.close()
 
-    # **6. Merge best hyperparams onto all layers for SAE, keeping layer information**
-    # Here we merge based on dataset_name and the hyperparameter set
-    # We DO NOT merge on 'layer' to retain all layer information
+    # Merge best hyperparams onto all layers for SAE
     sae_hyperparams = best_sae[
         ["dataset_name", "binarize_value", "top_n", "width"]
     ].drop_duplicates()
@@ -506,24 +339,9 @@ def compare_sae_to_baselines(df: pd.DataFrame, results_dir: str) -> None:
         on=["dataset_name", "binarize_value", "top_n", "width"],
         how="inner",
     )
-
-    # **7. Layer-wise Comparison**
-
-    # Correctly handle the 'layer' column for Hidden States if it's missing
-    if "layer" not in baseline_df.columns or baseline_df["layer"].isnull().all():
-        # If 'layer' is entirely missing or NaN for all Hidden States, add a placeholder
-        baseline_df.loc[baseline_df["type"] == "Hidden States", "layer"] = (
-            best_hidden_states["layer"].unique()[0]
-            if "layer" in best_hidden_states.columns
-            else -1
-        )
-
-    # Ensure 'layer' is of a compatible type for merging
-    sae_df_merged["layer"] = sae_df_merged["layer"].astype(str)
-    baseline_df["layer"] = baseline_df["layer"].astype(str)
-
     layer_compare_df = pd.concat([sae_df_merged, baseline_df], ignore_index=True)
 
+    # Save layer-level comparison
     layer_compare_df_table = layer_compare_df[
         [
             "dataset_name",
@@ -539,6 +357,7 @@ def compare_sae_to_baselines(df: pd.DataFrame, results_dir: str) -> None:
         os.path.join(tables_dir, "layer_compare_sae_baselines.csv"), index=False
     )
 
+    # Line plot: per dataset_name
     g = sns.relplot(
         data=layer_compare_df,
         x="layer",
@@ -549,7 +368,7 @@ def compare_sae_to_baselines(df: pd.DataFrame, results_dir: str) -> None:
         col_wrap=3,
         markers=True,
         dashes=False,
-        errorbar="sd",
+        ci="sd",
         height=4,
         aspect=1.2,
     )
@@ -557,93 +376,120 @@ def compare_sae_to_baselines(df: pd.DataFrame, results_dir: str) -> None:
     g.set_axis_labels("Layer", "Linear Macro F1 Score")
     plt.subplots_adjust(top=0.85)
     g.fig.suptitle("Layer Analysis: Best SAE Hyperparams vs. Baselines", y=1.05)
-
-    output_path = os.path.join(figures_dir, "layer_analysis_sae_vs_baselines.png")
-    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    # Save figure from the FacetGrid
+    plt.savefig(
+        os.path.join(figures_dir, "layer_analysis_sae_vs_baselines.png"),
+        dpi=300,
+        bbox_inches="tight",
+    )
     plt.close()
 
-    logging.info("Comparison of SAE vs. baselines completed.")
 
-
-def plot_multilingual_results(df: pd.DataFrame, results_dir: str) -> None:
+def plot_multilingual_results(df, results_dir):
     """
-    Plot performance for specific multilingual datasets and their unique languages.
-    Excludes 'test' splits for textdetox and excludes NaNs for cardiffnlp.
+    Plot performance for the two multilingual datasets, each with its unique languages:
 
-    Args:
-        df: DataFrame containing classification results.
-        results_dir: Base directory to save figures.
+    - textdetox/multilingual_toxicity_dataset -> language in 'dataset_split'
+      (exclude 'test' if needed).
+    - cardiffnlp/tweet_sentiment_multilingual -> language in 'dataset_config_name'
+      (exclude NaN).
+
+    Saves plots to: results_dir/figures/multilingual_performance.png.
     """
+
+    # Prepare figure output directory
     figures_dir = os.path.join(results_dir, "figures")
     os.makedirs(figures_dir, exist_ok=True)
 
+    # Datasets of interest
     multi_datasets = [
         "textdetox/multilingual_toxicity_dataset",
         "cardiffnlp/tweet_sentiment_multilingual",
     ]
-    multi_df = df[df["dataset_name"].isin(multi_datasets)].copy()
-    logging.info("[DEBUG] After filtering to multilingual datasets:")
-    logging.info(f"  Found {len(multi_df)} rows matching {multi_datasets}")
 
+    # Filter the main DF to just these datasets
+    multi_df = df[df["dataset_name"].isin(multi_datasets)].copy()
+    print("[DEBUG] After filtering to multilingual datasets:")
+    print(f"  Found {len(multi_df)} rows matching {multi_datasets}")
     if multi_df.empty:
-        logging.info("  No data found for multilingual datasets. Skipping plot.")
+        print("  No data found for multilingual datasets. Skipping plot.")
         return
 
+    # Further debug: how many rows per dataset
     for dset in multi_datasets:
         subset_len = len(multi_df[multi_df["dataset_name"] == dset])
-        logging.debug(f"  - {dset} has {subset_len} rows.")
+        print(f"  - {dset} has {subset_len} rows.")
+
+    # Print unique config and splits in the filtered DF
+    unique_config_names = multi_df["dataset_config_name"].unique()
+    unique_splits = multi_df["dataset_split"].unique()
+    print("[DEBUG] Unique Config Names:", unique_config_names)
+    print("[DEBUG] Unique Splits:", unique_splits)
 
     def extract_language(row):
         """
-        Extract the language depending on which dataset it is from.
-        Returns None if it doesn't match expected criteria (test split, missing config).
+        Extract the language depending on which dataset it is.
         """
         dname = row["dataset_name"]
+
+        # For textdetox => language is from dataset_split, ignoring 'test'
         if dname == "textdetox/multilingual_toxicity_dataset":
             split_val = row["dataset_split"]
+            # If you don't want to exclude 'test', remove this check:
             if split_val == "test":
                 return None
             else:
                 return split_val
+
+        # For cardiffnlp => language is from dataset_config_name, ignoring NaN
         elif dname == "cardiffnlp/tweet_sentiment_multilingual":
             config_val = row["dataset_config_name"]
             if pd.isna(config_val):
                 return None
             else:
                 return config_val
-        return None
 
+        return None  # Default/fallback
+
+    # Apply the logic to generate a "language" column
     multi_df["language"] = multi_df.apply(extract_language, axis=1)
 
+    # How many got assigned language=None?
     n_none = multi_df["language"].isna().sum()
-    logging.debug(f"[DEBUG] Rows with language=None: {n_none}")
+    print(f"[DEBUG] Rows with language=None: {n_none}")
 
+    # Drop rows with None language
     initial_len = len(multi_df)
     multi_df.dropna(subset=["language"], inplace=True)
     after_drop_len = len(multi_df)
-    logging.debug(
+    print(
         f"[DEBUG] Dropped {initial_len - after_drop_len} rows where language is None."
     )
-    logging.info(f"  Remaining rows in multilingual df: {after_drop_len}")
+    print(f"  Remaining rows in multilingual df: {after_drop_len}")
 
     if multi_df.empty:
-        logging.info("No valid rows left for multilingual plotting. Exiting.")
+        print("No valid rows left for multilingual plotting. Exiting.")
         return
 
-    logging.debug(
-        "[DEBUG] Unique dataset_name after cleaning: %s",
-        multi_df["dataset_name"].unique(),
+    # Print some final debug info
+    print(
+        "[DEBUG] Unique dataset_name after cleaning:", multi_df["dataset_name"].unique()
     )
-    logging.debug(
-        "[DEBUG] Unique language after cleaning: %s", multi_df["language"].unique()
-    )
+    print("[DEBUG] Unique language after cleaning:", multi_df["language"].unique())
 
+    # --- Changes for side-by-side subplots start here ---
+
+    # Create a figure with two subplots
     sns.set_theme(style="whitegrid")
-    fig, axes = plt.subplots(1, 2, figsize=(16, 6), sharey=True)
+    fig, axes = plt.subplots(
+        1, 2, figsize=(16, 6), sharey=True
+    )  # sharey for same y-axis scale
     fig.suptitle("Multilingual Results: Performance Across Languages")
 
+    # Plot for each dataset
     for i, dataset_name in enumerate(multi_datasets):
         dataset_df = multi_df[multi_df["dataset_name"] == dataset_name]
+
         try:
             sns.barplot(
                 data=dataset_df,
@@ -657,231 +503,221 @@ def plot_multilingual_results(df: pd.DataFrame, results_dir: str) -> None:
             )
             axes[i].set_title(dataset_name)
             axes[i].set_xlabel("Language")
-            if i == 0:
+            if i == 0:  # Set y-label only for the first subplot
                 axes[i].set_ylabel("Linear Macro F1 Score")
-            else:
-                axes[i].set_ylabel("")
-            axes[i].legend(title="Type", loc="upper right", bbox_to_anchor=(1.35, 0.8))
+            axes[i].legend(
+                title="Type", loc="upper right", bbox_to_anchor=(1.35, 0.8)
+            )  # moves legend outside of the plot
         except ValueError as ve:
-            logging.error(
-                f"[ERROR] Plotting for {dataset_name} failed with ValueError: {ve}",
-                exc_info=True,
-            )
+            print(f"[ERROR] Plotting for {dataset_name} failed with ValueError:")
+            print(f"    {ve}")
+            print("    Possibly no valid data. Check the dataframe content.")
 
     plt.tight_layout()
+
+    # Save the figure
     output_path = os.path.join(figures_dir, "multilingual_performance.png")
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     plt.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close()
-    logging.info(f"[DEBUG] Multilingual performance figure saved to {output_path}")
+    print(f"[DEBUG] Multilingual performance figure saved to {output_path}")
 
 
-def clean_dataset_name(dataset_name):
-    """Cleans the dataset name for saving figures."""
-    return dataset_name.replace("/", "_").replace(" ", "_")
-
-
-def evaluate_action_prediction(df: pd.DataFrame, results_dir: str) -> None:
+def multimodal_eval(df, results_dir):
     """
-    Evaluates action prediction performance of SAEs on multiple MCQ-like datasets.
-    Generates subplots for each original dataset, showing performance across layers.
+    Evaluates SAE performance across different settings and layers for multimodal models,
+    and generates plots, saving them into a 'multimodal' subfolder within the 'figures' directory.
 
     Args:
-        df: DataFrame containing evaluation results.
-        results_dir: Base directory to save figures.
+        df: The main dataframe containing all the evaluation results.
+        results_dir: The directory to save the generated plots to.
     """
-    figures_dir = os.path.join(results_dir, "figures", "action_prediction")
+
+    # Prepare figure output directory
+    figures_dir = os.path.join(results_dir, "figures", "multimodal")
     os.makedirs(figures_dir, exist_ok=True)
 
-    datasets_of_interest = [
-        "gallifantjack/pminervini_NQ_Swap_sub_answer_question_openai_google_gemma_2_9b_it",
-        "AIM-Harvard/google_gemma_2_9b_it_pubmed_qa",
-        "gallifantjack/pminervini_NQ_Swap_org_answer_question_openai_google_gemma_2_9b_it",
-        "AIM-Harvard/google_gemma_2_2b_pubmed_qa",
-        "gallifantjack/pminervini_NQ_Swap_org_answer_None_openai_google_gemma_2_9b_it",
-        "AIM-Harvard/google_gemma_2_9b_pubmed_qa",
+    # --- Filter data to datasets and model of interest ---
+    dataset_of_interest = [
+        "nelorth/oxford-flowers",
+        "rajistics/indian_food_images",
+        "renumics/cifar100-enriched",
     ]
-    df = df[df["dataset_name"].isin(datasets_of_interest)]
-    df = df[df["type"] == "SAE Features"]
+    print(df["dataset_name"].unique())
+    df = df[df["dataset_name"].isin(dataset_of_interest)]
+    df = df[df["model_name"] == "google/paligemma2-3b-pt-448"]
 
-    def extract_original_dataset(dataset_name: str) -> str:
-        if "pubmed_qa" in dataset_name:
-            return "pubmed_qa"
-        elif "pminervini_NQ_Swap" in dataset_name:
-            return "pminervini_NQ_Swap"
-        else:
-            return "unknown"
+    # Custom OpenAI-inspired color palette
+    openai_palette = [
+        "#0DAB76",
+        "#33A1DE",
+        "#FF6F61",
+        "#6B5B95",
+        "#88B04B",
+        "#F7CAC9",
+        "#92A8D1",
+    ]
 
-    df["original_dataset"] = df["dataset_name"].apply(extract_original_dataset)
+    # Set theme: whitegrid for a clean background, 'talk' context for emphasis, and our custom palette
+    sns.set_theme(style="whitegrid", context="talk", palette=openai_palette)
 
-    unique_models = df["model_name"].unique()
-    unique_original_datasets = df["original_dataset"].unique()
+    # Filter for SAE Features only
+    sae_df = df[df["type"] == "SAE Features"]
 
-    sns.set_theme(style="whitegrid", context="talk")
+    # Group by dataset, layer, top_n, binarize and compute mean score
+    grouped = (
+        sae_df.groupby(["dataset_name", "layer", "top_n", "binarize_value"])[
+            "linear_macro_f1_score"
+        ]
+        .mean()
+        .reset_index()
+    )
 
-    for original_dataset in unique_original_datasets:
-        dataset_df = df[df["original_dataset"] == original_dataset]
-        dataset_df["setting"] = dataset_df.apply(
-            lambda r: f"top_n: {r.top_n}, binarize: {r.binarize_value}", axis=1
-        )
-        unique_settings = dataset_df["setting"].unique()
+    # Create a combined setting description
+    grouped["setting"] = grouped.apply(
+        lambda r: f"top_n: {r.top_n}, binarize: {r.binarize_value}", axis=1
+    )
 
-        num_settings = len(unique_settings)
-        num_models = len(unique_models)
-        fig, axes = plt.subplots(
-            num_models,
-            num_settings,
-            figsize=(4 * num_settings, 4 * num_models),
-            sharey=True,
-        )
+    # Baseline values for each dataset
+    vision_baselines = {
+        "nelorth/oxford-flowers": 0.98,
+        "rajistics/indian_food_images": 0.98,
+        "renumics/cifar100-enriched": 0.79,
+    }
+    residual_baselines = {
+        "nelorth/oxford-flowers": 0.95,
+        "rajistics/indian_food_images": 0.90,
+        "renumics/cifar100-enriched": 0.75,
+    }
 
-        # If only one setting or model, ensure 'axes' is 2D
-        if num_settings == 1 and num_models == 1:
-            axes = [[axes]]
-        elif num_settings == 1:
-            axes = [axes]
-        elif num_models == 1:
-            axes = [[ax] for ax in axes]
+    datasets = grouped["dataset_name"].unique()
 
-        for r, model in enumerate(unique_models):
-            for c, setting in enumerate(unique_settings):
-                model_setting_df = dataset_df[
-                    (dataset_df["model_name"] == model)
-                    & (dataset_df["setting"] == setting)
-                ]
-                ax = axes[r][c]
+    for dataset in datasets:
+        dataset_data = grouped[grouped["dataset_name"] == dataset]
 
-                if not model_setting_df.empty:
-                    cleaned_model_name = model.replace("/", "_").replace("google_", "")
+        # High resolution figure suitable for conference (300 dpi)
+        plt.figure(figsize=(10, 7), dpi=300)
 
-                    sns.lineplot(
-                        data=model_setting_df,
-                        x="layer",
-                        y="linear_macro_f1_score",
-                        label=cleaned_model_name,
-                        marker="o",
-                        ax=ax,
-                    )
-                    ax.set_title(f"{setting}", fontsize=8)
-                    ax.set_xlabel("Layer", fontsize=8)
-                    if c == 0:
-                        ax.set_ylabel(
-                            f"{cleaned_model_name}\nLinear Macro F1 Score", fontsize=8
-                        )
-                    else:
-                        ax.set_ylabel("")
-                    ax.tick_params(axis="both", which="major", labelsize=6)
-                    ax.grid(True)
-                    ax.get_legend().remove()
-
-        # Add a single legend
-        handles, labels = axes[0][0].get_legend_handles_labels()
-        fig.legend(
-            handles, labels, loc="upper right", bbox_to_anchor=(1.15, 0.95), fontsize=6
+        # Plot lines for each combination of top_n and binarization
+        ax = sns.lineplot(
+            data=dataset_data,
+            x="layer",
+            y="linear_macro_f1_score",
+            hue="setting",
+            style="setting",
+            markers=True,
+            dashes=False,
+            linewidth=2.5,
+            markersize=8,
         )
 
+        # Add baseline lines
+        vb = vision_baselines.get(dataset)
+        rb = residual_baselines.get(dataset)
+
+        if vb is not None:
+            plt.axhline(
+                y=vb,
+                color="black",
+                linestyle="--",
+                linewidth=2,
+                label=f"Vision Tower Best ({vb:.2f})",
+            )
+
+        if rb is not None:
+            plt.axhline(
+                y=rb,
+                color="#FF6F61",
+                linestyle=":",
+                linewidth=2,
+                label=f"Residual Stream Probing Best ({rb:.2f})",
+            )
+
+        # Titles and labels with larger fonts for conference clarity
+        # Clean dataset name for plot title (replace slashes with underscores)
+        cleaned_dataset_name = dataset.replace("/", "_")
+        plt.title(
+            f"Linear Macro F1 Score across Layers for {cleaned_dataset_name}",
+            fontsize=22,
+            weight="bold",
+        )
+        plt.xlabel("Layer", fontsize=18)
+        plt.ylabel("Linear Macro F1 Score", fontsize=18)
+
+        # Customize tick parameters for readability
+        plt.xticks(fontsize=16)
+        plt.yticks(fontsize=16)
+        plt.grid(True, linestyle="--", alpha=0.3)
+
+        # Manage legend outside plot area for clarity
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        plt.legend(
+            by_label.values(),
+            by_label.keys(),
+            title="Setting",
+            bbox_to_anchor=(1.05, 1),
+            loc="upper left",
+            fontsize=14,
+            title_fontsize=16,
+        )
+
+        sns.despine(trim=True)  # Remove top and right spines for a cleaner look
         plt.tight_layout()
 
+        # Save the figure with cleaned dataset name in the path
         output_path = os.path.join(
-            figures_dir, f"action_prediction_{original_dataset}.png"
+            figures_dir, f"{cleaned_dataset_name}_sae_performance.png"
         )
         plt.savefig(output_path, dpi=300, bbox_inches="tight")
         plt.close()
-        logging.info(
-            f"[DEBUG] Action prediction performance figure for {original_dataset} saved to {output_path}"
-        )
+        print(f"[DEBUG] SAE performance figure saved to {output_path}")
 
 
-def main() -> None:
-    """
-    Main entry point. Loads YAML config, extracts scores if needed, and runs selected analyses.
-    """
-    try:
-        with open("config_jg.yaml", "r") as f:
-            config = yaml.safe_load(f)
-    except FileNotFoundError:
-        logging.error("config_jg.yaml not found. Exiting.")
-        return
-    except Exception as e:
-        logging.error(f"Error loading config_jg.yaml: {e}", exc_info=True)
-        return
-
+def main():
+    # Load configuration
+    with open("config_jg.yaml", "r") as f:
+        config = yaml.safe_load(f)
     dashboard_dir = config["settings"]["base_classify_dir"]
-    output_csv = os.path.join(dashboard_dir, "classify_scores.csv")
 
+    # Check if classify_scores.csv already exists
+    output_csv = os.path.join(dashboard_dir, "classify_scores.csv")
     if not os.path.exists(output_csv):
-        logging.info("No classify_scores.csv found, extracting new scores...")
         extract_scores(dashboard_dir, output_csv)
     else:
-        logging.info(f"{output_csv} already exists. Skipping extraction.")
+        print(f"{output_csv} already exists. Skipping extraction.")
 
+    # Make results folder: output/results
     results_dir = os.path.join("output", "results")
     os.makedirs(results_dir, exist_ok=True)
 
+    # Load into DataFrame
     df = pd.read_csv(output_csv)
-    logging.info("\nDataFrame Info:")
-    logging.info(df.info())
+    df_original = df.copy()
 
-    logging.info(f"Dataset Name Unique Values: {df['dataset_name'].unique()}")
+    print("\nDataFrame Info:")
+    print(df.info())
 
-    # check_missing_combinations(df, results_dir, "config_jg.yaml")
-    sae_hyperparam_analysis(df, results_dir)
+    # # Check for missing combinations
+    # check_missing_combinations(df, results_dir)
+
+    # # SAE Hyperparameter Analysis
+    # sae_hyperparam_analysis(df, results_dir)
+
+    # # Compare Best SAE to Baselines
     # compare_sae_to_baselines(df, results_dir)
+
+    # # Multilingual eval
     # plot_multilingual_results(df, results_dir)
 
-    # 1. Pooling strategies
-    pooling_datasets_list = [
-        "AIM-Harvard/reject_prompts",
-        "jackhhao/jailbreak-classification",
-        "willcb/massive-intent",
-        "willcb/massive-scenario",
-        "legacy-datasets/banking77",
-        "SetFit/tweet_eval_stance_abortion",
-    ]
-
-    pooling_widths_of_interest = ["16k", "65k"]
-
-    plot_pooling_strategies(
-        df=df,
-        results_dir=results_dir,
-        pooling_datasets_list=pooling_datasets_list,
-        pooling_widths_of_interest=pooling_widths_of_interest,
-        score_col="linear_macro_f1_score",
-    )
-
-    # # 2. Scale across size
-    # scale_datasets_of_interest = [
-    #     "Anthropic/election_questions",
-    #     "dair-ai/emotion",
-    #     "willcb/massive-scenario",
-    # ]
-
-    # scale_models_of_interest = ["google/gemma-2-9b", "google/gemma-2-9b-it"]
-    # scale_widths_of_interest = ["16k", "131k", "1m"]
-
-    # # 2.1 for each dataset plot performance across layers across model size and sae widths
-    # plot_sae_across_models_and_widths_by_dataset(
-    #     df,
-    #     results_dir,
-    #     scale_datasets_of_interest,
-    #     scale_models_of_interest,
-    #     scale_widths_of_interest,
-    # )
-
-    # # 3. Image Results
-    # image_datasets_of_interest = [
-    #     "nelorth/oxford-flowers",
-    #     "rajistics/indian_food_images",
-    #     "renumics/cifar100-enriched",
-    # ]
-    # image_widths_of_interest = ["16k"]
-
-    # # 3.1 Per-dataset + per-width SAE performance plots
-    # plot_dataset_width_sae(
-    #     df, results_dir, image_datasets_of_interest, image_widths_of_interest
-    # )
-
-    # evaluate_action_prediction(df, results_dir)
+    # multimodal eval
+    multimodal_eval(df, results_dir)
 
 
 if __name__ == "__main__":
     main()
+
+
+## TODO
+# shans multilingual heatmap transfer/ line plot
+# shan upload his results
