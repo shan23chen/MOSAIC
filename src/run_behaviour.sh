@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # if want to use vllm start the server before e.g
-# vllm serve google/gemma-2-9b --enforce-eager --port=8080 --gpu-memory-utilization=0.95 --dtype=auto --disable-sliding-window --trust-remote-code --tensor-parallel-size=2 --chat-template=gemma_chat.jinja# you also need to change the model name from hf/model -> openai/model so inspect can find the model
+# vllm serve google/gemma-2-9b --enforce-eager --port=8080 --gpu-memory-utilization=0.95 --dtype=auto --disable-sliding-window --trust-remote-code --tensor-parallel-size=2 --chat-template=src/gemma_chat.jinja
+# you also need to change the model name from hf/model -> openai/model so inspect can find the model
 # if not then you do not need the model base url 
 
 # Configuration for model graded fact evaluation
@@ -12,13 +13,6 @@ SCORER_MODEL="openai/gpt-4o-mini"
 
 mkdir -p logs
 chmod 755 logs
-
-# # Default inspect tasks
-# default_inspect_tasks=(
-#     "inspect_evals/pubmedqa"
-#     "inspect_evals/piqa"
-#     "inspect_evals/boolq"
-# )
 
 # Function to run inspect default evaluations
 run_default_inspect_tasks() {
@@ -80,14 +74,7 @@ dataset_mappings=(
     "pminervini/NQ-Swap:org_context:org_answer"
     "pminervini/NQ-Swap:sub_context:sub_answer"
     "pminervini/NQ-Swap:none:org_answer"
-    # "your/new-dataset:new_context:new_answer"
-    # google-research-datasets/nq_open
 )
-
-# # # Run default inspect tasks
-# for model in "${models[@]}"; do
-#     run_default_inspect_tasks "$model" "$model_base_url"
-# done
 
 # Iterate over models and dataset mappings for custom tasks
 for model in "${models[@]}"; do

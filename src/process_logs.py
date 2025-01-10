@@ -37,14 +37,23 @@ def process_eval_logs():
             split = log.eval.task_args.get("split", "N/A")
             dataset_samples = log.eval.dataset.samples if log.eval.dataset else 0
 
+            # if dataset_name not contain nq_swap continue
+            if "pminervini/NQ-Swap" not in dataset_name:
+                print(f"Dataset {dataset_name} does not contain nq_swap, skipping.")
+                continue
+
+            if task_id == "2DDrqefHA7vvaTqqNKA3R2":
+                # change input column to none
+                input_column = "None"
+
             # Create a composite key (dataset-model)
-            dict_key = f"{clean_string(dataset_name)}_{clean_string(model_name)}"
+            dict_key = f"{clean_string(dataset_name)}_{clean_string(model_name)}_{clean_string(input_column)}_{clean_string(label_column)}"
             filename = os.path.join("per_run_results", f"{dict_key}.json")
 
-            # If file already exists, skip processing
+            # If file already exists add a _1 to the filename
             if os.path.exists(filename):
-                print(f"Results for {dict_key} already exist at {filename}, skipping.")
-                continue
+                print(f"Results for {dict_key} already exist at {filename}, adding _1.")
+                filename = os.path.join("per_run_results", f"{dict_key}_1.json")
 
             # Collect scores
             for score in log.results.scores:
@@ -205,16 +214,22 @@ if __name__ == "__main__":
             # Extract dataset_name and label_column from the first task_info entry
             if data["task_info"]:
                 dataset_name = data["task_info"][0]["dataset_name"]
+                input_column = data["task_info"][0]["input_column"]
                 label_column = data["task_info"][0]["label_column"]
+                model_name = data["task_info"][0]["model_name"]
             else:
                 dataset_name = "unknown_dataset"
+                input_column = "unknown_input"
                 label_column = "unknown_label"
+                model_name = "unknown_model"
 
             # Clean dataset and label names for repo_id
             dataset_name = dataset_name.replace("/", "_").replace("-", "_")
+            model_name = model_name.replace("/", "_").replace("-", "_")
             label_column = label_column.replace("/", "_").replace("-", "_")
+            input_column = input_column.replace("/", "_").replace("-", "_")
 
-            repo_id = f"gallifantjack/{dataset_name}_{label_column}"
+            repo_id = f"gallifantjack/{dataset_name}_{label_column}_{input_column}_{model_name}"
 
             # Upload the extracted dataset
             upload_eval_dataset_to_huggingface(
