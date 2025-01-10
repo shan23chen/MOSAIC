@@ -1,0 +1,153 @@
+model_name,dataset_name,missing_count
+Gemma 2 27B,AIM-Harvard/reject_prompts,4
+Gemma 2 27B,Anthropic/election_questions,4
+Gemma 2 27B,SetFit/tweet_eval_stance_abortion,4
+Gemma 2 27B,"baseline: tfidf, last token prob",4
+Gemma 2 27B,cardiffnlp/tweet_sentiment_multilingual,4
+Gemma 2 27B,inspect_evals/boolq,4
+Gemma 2 27B,inspect_evals/piqa,4
+Gemma 2 27B,inspect_evals/pubmedqa,4
+Gemma 2 27B,jackhhao/jailbreak-classification,4
+Gemma 2 27B,legacy-datasets/banking77,4
+Gemma 2 27B,nelorth/oxford-flowers,4
+Gemma 2 27B,pminervini/NQ-Swap-no-context,4
+Gemma 2 27B,pminervini/NQ-Swap-original,4
+Gemma 2 27B,pminervini/NQ-Swap-subbed-context,4
+Gemma 2 27B,rajistics/indian_food_images,4
+Gemma 2 27B,renumics/cifar100-enriched,4
+Gemma 2 27B,textdetox/multilingual_toxicity_dataset,4
+Gemma 2 27B,willcb/massive-intent,4
+Gemma 2 27B,willcb/massive-scenario,4
+"Gemma 2 27B (2,4)",AIM-Harvard/reject_prompts,4
+"Gemma 2 27B (2,4)",Anthropic/election_questions,4
+"Gemma 2 27B (2,4)",SetFit/tweet_eval_stance_abortion,4
+"Gemma 2 27B (2,4)","baseline: tfidf, last token prob",4
+"Gemma 2 27B (2,4)",cardiffnlp/tweet_sentiment_multilingual,4
+"Gemma 2 27B (2,4)",inspect_evals/boolq,4
+"Gemma 2 27B (2,4)",inspect_evals/piqa,4
+"Gemma 2 27B (2,4)",inspect_evals/pubmedqa,4
+"Gemma 2 27B (2,4)",jackhhao/jailbreak-classification,4
+"Gemma 2 27B (2,4)",legacy-datasets/banking77,4
+"Gemma 2 27B (2,4)",nelorth/oxford-flowers,4
+"Gemma 2 27B (2,4)",pminervini/NQ-Swap-no-context,4
+"Gemma 2 27B (2,4)",pminervini/NQ-Swap-original,4
+"Gemma 2 27B (2,4)",pminervini/NQ-Swap-subbed-context,4
+"Gemma 2 27B (2,4)",rajistics/indian_food_images,4
+"Gemma 2 27B (2,4)",renumics/cifar100-enriched,4
+"Gemma 2 27B (2,4)",textdetox/multilingual_toxicity_dataset,4
+"Gemma 2 27B (2,4)",willcb/massive-intent,4
+"Gemma 2 27B (2,4)",willcb/massive-scenario,4
+Gemma 2 2B,AIM-Harvard/reject_prompts,36
+Gemma 2 2B,Anthropic/election_questions,36
+Gemma 2 2B,SetFit/tweet_eval_stance_abortion,36
+Gemma 2 2B,"baseline: tfidf, last token prob",36
+Gemma 2 2B,cardiffnlp/tweet_sentiment_multilingual,36
+Gemma 2 2B,inspect_evals/boolq,36
+Gemma 2 2B,inspect_evals/piqa,36
+Gemma 2 2B,inspect_evals/pubmedqa,36
+Gemma 2 2B,jackhhao/jailbreak-classification,36
+Gemma 2 2B,legacy-datasets/banking77,36
+Gemma 2 2B,nelorth/oxford-flowers,36
+Gemma 2 2B,pminervini/NQ-Swap-no-context,36
+Gemma 2 2B,pminervini/NQ-Swap-original,36
+Gemma 2 2B,pminervini/NQ-Swap-subbed-context,36
+Gemma 2 2B,rajistics/indian_food_images,36
+Gemma 2 2B,renumics/cifar100-enriched,36
+Gemma 2 2B,textdetox/multilingual_toxicity_dataset,36
+Gemma 2 2B,willcb/massive-intent,36
+Gemma 2 2B,willcb/massive-scenario,36
+"Gemma 2 2B (2,4)",AIM-Harvard/reject_prompts,4
+"Gemma 2 2B (2,4)",Anthropic/election_questions,4
+"Gemma 2 2B (2,4)",SetFit/tweet_eval_stance_abortion,4
+"Gemma 2 2B (2,4)","baseline: tfidf, last token prob",4
+"Gemma 2 2B (2,4)",cardiffnlp/tweet_sentiment_multilingual,4
+"Gemma 2 2B (2,4)",inspect_evals/boolq,4
+"Gemma 2 2B (2,4)",inspect_evals/piqa,4
+"Gemma 2 2B (2,4)",inspect_evals/pubmedqa,4
+"Gemma 2 2B (2,4)",jackhhao/jailbreak-classification,4
+"Gemma 2 2B (2,4)",legacy-datasets/banking77,4
+"Gemma 2 2B (2,4)",nelorth/oxford-flowers,4
+"Gemma 2 2B (2,4)",pminervini/NQ-Swap-no-context,4
+"Gemma 2 2B (2,4)",pminervini/NQ-Swap-original,4
+"Gemma 2 2B (2,4)",pminervini/NQ-Swap-subbed-context,4
+"Gemma 2 2B (2,4)",rajistics/indian_food_images,4
+"Gemma 2 2B (2,4)",renumics/cifar100-enriched,4
+"Gemma 2 2B (2,4)",textdetox/multilingual_toxicity_dataset,4
+"Gemma 2 2B (2,4)",willcb/massive-intent,4
+"Gemma 2 2B (2,4)",willcb/massive-scenario,4
+Gemma 2 9B,AIM-Harvard/reject_prompts,36
+Gemma 2 9B,Anthropic/election_questions,36
+Gemma 2 9B,SetFit/tweet_eval_stance_abortion,36
+Gemma 2 9B,"baseline: tfidf, last token prob",36
+Gemma 2 9B,cardiffnlp/tweet_sentiment_multilingual,36
+Gemma 2 9B,inspect_evals/boolq,36
+Gemma 2 9B,inspect_evals/piqa,36
+Gemma 2 9B,inspect_evals/pubmedqa,36
+Gemma 2 9B,jackhhao/jailbreak-classification,36
+Gemma 2 9B,legacy-datasets/banking77,36
+Gemma 2 9B,nelorth/oxford-flowers,36
+Gemma 2 9B,pminervini/NQ-Swap-no-context,36
+Gemma 2 9B,pminervini/NQ-Swap-original,36
+Gemma 2 9B,pminervini/NQ-Swap-subbed-context,36
+Gemma 2 9B,rajistics/indian_food_images,36
+Gemma 2 9B,renumics/cifar100-enriched,36
+Gemma 2 9B,textdetox/multilingual_toxicity_dataset,36
+Gemma 2 9B,willcb/massive-intent,36
+Gemma 2 9B,willcb/massive-scenario,36
+"Gemma 2 9B (2,4)",AIM-Harvard/reject_prompts,4
+"Gemma 2 9B (2,4)",Anthropic/election_questions,4
+"Gemma 2 9B (2,4)",SetFit/tweet_eval_stance_abortion,4
+"Gemma 2 9B (2,4)","baseline: tfidf, last token prob",4
+"Gemma 2 9B (2,4)",cardiffnlp/tweet_sentiment_multilingual,4
+"Gemma 2 9B (2,4)",inspect_evals/boolq,4
+"Gemma 2 9B (2,4)",inspect_evals/piqa,4
+"Gemma 2 9B (2,4)",inspect_evals/pubmedqa,4
+"Gemma 2 9B (2,4)",jackhhao/jailbreak-classification,4
+"Gemma 2 9B (2,4)",legacy-datasets/banking77,4
+"Gemma 2 9B (2,4)",nelorth/oxford-flowers,4
+"Gemma 2 9B (2,4)",pminervini/NQ-Swap-no-context,4
+"Gemma 2 9B (2,4)",pminervini/NQ-Swap-original,4
+"Gemma 2 9B (2,4)",pminervini/NQ-Swap-subbed-context,4
+"Gemma 2 9B (2,4)",rajistics/indian_food_images,4
+"Gemma 2 9B (2,4)",renumics/cifar100-enriched,4
+"Gemma 2 9B (2,4)",textdetox/multilingual_toxicity_dataset,4
+"Gemma 2 9B (2,4)",willcb/massive-intent,4
+"Gemma 2 9B (2,4)",willcb/massive-scenario,4
+Gemma 2 9B IT,AIM-Harvard/reject_prompts,12
+Gemma 2 9B IT,Anthropic/election_questions,12
+Gemma 2 9B IT,SetFit/tweet_eval_stance_abortion,12
+Gemma 2 9B IT,"baseline: tfidf, last token prob",12
+Gemma 2 9B IT,cardiffnlp/tweet_sentiment_multilingual,12
+Gemma 2 9B IT,inspect_evals/boolq,12
+Gemma 2 9B IT,inspect_evals/piqa,12
+Gemma 2 9B IT,inspect_evals/pubmedqa,12
+Gemma 2 9B IT,jackhhao/jailbreak-classification,12
+Gemma 2 9B IT,legacy-datasets/banking77,12
+Gemma 2 9B IT,nelorth/oxford-flowers,12
+Gemma 2 9B IT,pminervini/NQ-Swap-no-context,12
+Gemma 2 9B IT,pminervini/NQ-Swap-original,12
+Gemma 2 9B IT,pminervini/NQ-Swap-subbed-context,12
+Gemma 2 9B IT,rajistics/indian_food_images,12
+Gemma 2 9B IT,renumics/cifar100-enriched,12
+Gemma 2 9B IT,textdetox/multilingual_toxicity_dataset,12
+Gemma 2 9B IT,willcb/massive-intent,12
+Gemma 2 9B IT,willcb/massive-scenario,12
+"Gemma 2 9B IT (2,4)",AIM-Harvard/reject_prompts,12
+"Gemma 2 9B IT (2,4)",Anthropic/election_questions,12
+"Gemma 2 9B IT (2,4)",SetFit/tweet_eval_stance_abortion,12
+"Gemma 2 9B IT (2,4)","baseline: tfidf, last token prob",12
+"Gemma 2 9B IT (2,4)",cardiffnlp/tweet_sentiment_multilingual,12
+"Gemma 2 9B IT (2,4)",inspect_evals/boolq,12
+"Gemma 2 9B IT (2,4)",inspect_evals/piqa,12
+"Gemma 2 9B IT (2,4)",inspect_evals/pubmedqa,12
+"Gemma 2 9B IT (2,4)",jackhhao/jailbreak-classification,12
+"Gemma 2 9B IT (2,4)",legacy-datasets/banking77,12
+"Gemma 2 9B IT (2,4)",nelorth/oxford-flowers,12
+"Gemma 2 9B IT (2,4)",pminervini/NQ-Swap-no-context,12
+"Gemma 2 9B IT (2,4)",pminervini/NQ-Swap-original,12
+"Gemma 2 9B IT (2,4)",pminervini/NQ-Swap-subbed-context,12
+"Gemma 2 9B IT (2,4)",rajistics/indian_food_images,12
+"Gemma 2 9B IT (2,4)",renumics/cifar100-enriched,12
+"Gemma 2 9B IT (2,4)",textdetox/multilingual_toxicity_dataset,12
+"Gemma 2 9B IT (2,4)",willcb/massive-intent,12
+"Gemma 2 9B IT (2,4)",willcb/massive-scenario,12

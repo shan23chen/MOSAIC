@@ -82,7 +82,7 @@ def plot_sae_across_models_and_widths_by_dataset(
 
     # Force `layer_group` in the DataFrame
     df = df.copy()
-    df["layer_group"] = df["layer"].apply(layer_group)
+    df["layer_group"] = df["layer"].astype(int).apply(layer_group)
     # If you'll average across top_n, binarize_value, etc. (adjust as needed)
     grouped_df = (
         df[df["type"] == "SAE Features"]  # only SAE Features

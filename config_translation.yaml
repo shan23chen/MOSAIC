@@ -13,7 +13,8 @@ settings:
 models:
   - name: "google/gemma-2-2b"
     layers: [5, 12, 19]
-    widths: ["16k", "65k"]
+    widths: ["16k"]
+    # widths: ["16k", "65k"]
 
   # - name: "google/gemma-2-9b"
   #   layers: [9, 20, 31]

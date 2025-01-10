@@ -17,7 +17,7 @@ def clean_dataset_name(dataset_name: str) -> str:
     return dataset_name.replace("/", "_").replace(" ", "_")
 
 
-def layer_group(layer: int) -> str:
+def layer_group(layer) -> str:
     """
     Maps layer index to a string indicating 'early', 'middle', or 'late'.
     """
@@ -79,7 +79,7 @@ def plot_dataset_width_sae(
     df = df.copy()  # to avoid modifying the caller's DataFrame
     df = df[df["model_name"] == "google/paligemma2-3b-pt-224"]
     df = df.fillna("no")  # Fill NaNs with 'no'
-    df["layer_group"] = df["layer"].apply(layer_group)
+    df["layer_group"] = df["layer"].astype(int).apply(layer_group)
 
     # For each (dataset, width), we generate a plot
     for dataset_name in datasets_of_interest:
@@ -142,7 +142,9 @@ def plot_dataset_width_sae(
             )
 
             # Force 'layer_group' again on grouped_sae
-            grouped_sae["layer_group"] = grouped_sae["layer"].apply(layer_group)
+            grouped_sae["layer_group"] = (
+                grouped_sae["layer"].astype(int).apply(layer_group)
+            )
             cat_type = CategoricalDtype(
                 categories=["early", "middle", "late"], ordered=True
             )
