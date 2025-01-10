@@ -22,7 +22,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 # Load configuration from YAML file
-with open("config_ks.yaml", "r") as f:
+with open("config_translation.yaml", "r") as f:
     config = yaml.safe_load(f)
 
 settings = config["settings"]

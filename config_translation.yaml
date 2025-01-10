@@ -1,0 +1,191 @@
+settings:
+  base_save_dir: "./output/activations"
+  base_classify_dir: "./output/classifications"
+  batch_size: 2
+  model_type: "llm"
+  sae_location: "res"
+  test_size: 0.2
+  tree_depth: 5
+  act_only: True
+  cuda_visible_devices: "0"
+  bow_baseline: "True"
+
+models:
+  - name: "google/gemma-2-2b"
+    layers: [5, 12, 19]
+    widths: ["16k", "65k"]
+
+  # - name: "google/gemma-2-9b"
+  #   layers: [9, 20, 31]
+  #   widths: ["16k"]
+
+  # - name: "google/gemma-2-9b-it"
+  #   layers: [9, 20, 31]
+  #   widths: ["16k"]
+
+datasets:
+
+  # - name: "AIM-Harvard/multilingual_toxicity_dataset"
+  #   config_name: ""
+  #   split: "es"
+  #   text_field: "translation"
+  #   label_field: "toxic"
+
+  # - name: "AIM-Harvard/multilingual_toxicity_dataset"
+  #   config_name: ""
+  #   split: "de"
+  #   text_field: "translation"
+  #   label_field: "toxic"
+
+  # - name: "AIM-Harvard/multilingual_toxicity_dataset"
+  #   config_name: ""
+  #   split: "ru"
+  #   text_field: "translation"
+  #   label_field: "toxic"
+  
+  # - name: "AIM-Harvard/multilingual_toxicity_dataset"
+  #   config_name: ""
+  #   split: "zh"
+  #   text_field: "translation"
+  #   label_field: "toxic"
+  
+  # - name: "AIM-Harvard/multilingual_toxicity_dataset"
+  #   config_name: ""
+  #   split: "en"
+  #   text_field: "translation"
+  #   label_field: "toxic"
+
+  # - name: "textdetox/multilingual_toxicity_dataset"
+  #   config_name: ""
+  #   split: "es"
+  #   text_field: "text"
+  #   label_field: "toxic"
+
+  # - name: "textdetox/multilingual_toxicity_dataset"
+  #   config_name: ""
+  #   split: "de"
+  #   text_field: "text"
+  #   label_field: "toxic"
+
+  # - name: "textdetox/multilingual_toxicity_dataset"
+  #   config_name: ""
+  #   split: "ru"
+  #   text_field: "text"
+  #   label_field: "toxic"
+  
+  # - name: "textdetox/multilingual_toxicity_dataset"
+  #   config_name: ""
+  #   split: "zh"
+  #   text_field: "text"
+  #   label_field: "toxic"
+  
+  # - name: "textdetox/multilingual_toxicity_dataset"
+  #   config_name: ""
+  #   split: "en"
+  #   text_field: "text"
+  #   label_field: "toxic"
+  
+  # - name: "cardiffnlp/tweet_sentiment_multilingual"
+  #   config_name: "english"
+  #   split: "test"
+  #   text_field: "text"
+  #   label_field: "label"
+
+  # - name: "cardiffnlp/tweet_sentiment_multilingual"
+  #   config_name: "spanish"
+  #   split: "test"
+  #   text_field: "text"
+  #   label_field: "label"
+
+  # - name: "cardiffnlp/tweet_sentiment_multilingual"
+  #   config_name: "french"
+  #   split: "test"
+  #   text_field: "text"
+  #   label_field: "label"
+
+  # - name: "cardiffnlp/tweet_sentiment_multilingual"
+  #   config_name: "german"
+  #   split: "test"
+  #   text_field: "text"
+  #   label_field: "label"
+
+  # - name: "cardiffnlp/tweet_sentiment_multilingual"
+  #   config_name: "portuguese"
+  #   split: "test"
+  #   text_field: "text"
+  #   label_field: "label"
+
+  # - name: "cardiffnlp/tweet_sentiment_multilingual"
+  #   config_name: "italian"
+  #   split: "test"
+  #   text_field: "text"
+  #   label_field: "label"
+
+  # - name: "cardiffnlp/tweet_sentiment_multilingual"
+  #   config_name: "arabic"
+  #   split: "test"
+  #   text_field: "text"
+  #   label_field: "label"
+
+  # - name: "cardiffnlp/tweet_sentiment_multilingual"
+  #   config_name: "hindi"
+  #   split: "test"
+  #   text_field: "text"
+  #   label_field: "label"
+  
+  # - name: "AIM-Harvard/cardiffnlp_tweet_sentiment_multilingual_translated"
+  #   config_name: "english"
+  #   split: "test"
+  #   text_field: "translation"
+  #   label_field: "label"
+
+  - name: "AIM-Harvard/cardiffnlp_tweet_sentiment_multilingual_translated"
+    config_name: ""
+    split: "spanish"
+    text_field: "translation"
+    label_field: "label"
+
+  - name: "AIM-Harvard/cardiffnlp_tweet_sentiment_multilingual_translated"
+    config_name: ""
+    split: "french"
+    text_field: "translation"
+    label_field: "label"
+
+  - name: "AIM-Harvard/cardiffnlp_tweet_sentiment_multilingual_translated"
+    config_name: ""
+    split: "german"
+    text_field: "translation"
+    label_field: "label"
+
+  - name: "AIM-Harvard/cardiffnlp_tweet_sentiment_multilingual_translated"
+    config_name: ""
+    split: "portuguese"
+    text_field: "translation"
+    label_field: "label"
+
+  - name: "AIM-Harvard/cardiffnlp_tweet_sentiment_multilingual_translated"
+    config_name: ""
+    split: "italian"
+    text_field: "translation"
+    label_field: "label"
+
+  - name: "AIM-Harvard/cardiffnlp_tweet_sentiment_multilingual_translated"
+    config_name: ""
+    split: "arabic"
+    text_field: "translation"
+    label_field: "label"
+
+  - name: "AIM-Harvard/cardiffnlp_tweet_sentiment_multilingual_translated"
+    config_name: ""
+    split: "hindi"
+    text_field: "translation"
+    label_field: "label"
+
+
+
+classification_params:
+  top_n_values: [0, 20, 50]
+  binarize_values: [null, 1.0]
+  extra_top_n: -1
+  extra_binarize_value: null
+
