@@ -14,4 +14,14 @@ src/run_zip.sh
 .env
 *.eval
 output/activations/
+<<<<<<< HEAD
 output/classifications/google_paligemma2-3b-pt-224/
+=======
+src/per_run_results/pminervini_nq_swap_openai_google_gemma_2_9b_it_none_org_answer.json
+src/per_run_results/pminervini_nq_swap_openai_google_gemma_2_9b_it_question_org_answer.json
+src/per_run_results/pminervini_nq_swap_openai_google_gemma_2_9b_it_question_sub_answer.json
+src/per_run_results/pminervini_nq_swap_openai_google_gemma_2_9b_question_org_answer_1.json
+src/per_run_results/pminervini_nq_swap_openai_google_gemma_2_9b_question_org_answer.json
+src/per_run_results/pminervini_nq_swap_openai_google_gemma_2_9b_question_sub_answer.json
+src/per_run_results/pminervini_nq_swap_openai_google_gemma_2_9b_it_question_sub_answer.json
+>>>>>>> c7829b9d (output results batch)
