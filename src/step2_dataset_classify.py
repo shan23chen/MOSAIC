@@ -229,7 +229,7 @@ def main():
                     sae_id=feature_id,
                     device=device,
                 )
-            
+
             elif args.model_type == "vlm" and "paligemma2" in args.model_name.lower():
                 sae_location, feature_id, explanation_path = get_sae_config(
                     args.model_name, layer, args.sae_location, args.width
@@ -334,10 +334,10 @@ def main():
                 binarize_value=None,
                 compute_shap=args.compute_shap,
             )
-            print("Training decision tree on hidden states")
-            hidden_tree_results = trainer.train_decision_tree(
-                features, hidden=True, binarize_value=None
-            )
+            # print("Training decision tree on hidden states")
+            # hidden_tree_results = trainer.train_decision_tree(
+            #     features, hidden=True, binarize_value=None
+            # )
             print("--- SAE features ---")
             print("Training linear probe on SAE features")
             sae_linear_results = trainer.train_linear_probe(
@@ -346,10 +346,10 @@ def main():
                 binarize_value=binarize_value,
                 compute_shap=args.compute_shap,
             )
-            print("Training decision tree on SAE features")
-            sae_tree_results = trainer.train_decision_tree(
-                features, hidden=False, binarize_value=binarize_value
-            )
+            # print("Training decision tree on SAE features")
+            # sae_tree_results = trainer.train_decision_tree(
+            #     features, hidden=False, binarize_value=binarize_value
+            # )
 
             # Save results using new save method
             trainer.save_results(
@@ -361,14 +361,14 @@ def main():
                 hidden=True,
             )
 
-            trainer.save_results(
-                hidden_tree_results,
-                layer_save_dir,
-                args.model_name,
-                args.layer,
-                "decision_tree",
-                hidden=True,
-            )
+            # trainer.save_results(
+            #     hidden_tree_results,
+            #     layer_save_dir,
+            #     args.model_name,
+            #     args.layer,
+            #     "decision_tree",
+            #     hidden=True,
+            # )
 
             trainer.save_results(
                 sae_linear_results,
@@ -379,14 +379,14 @@ def main():
                 hidden=False,
             )
 
-            trainer.save_results(
-                sae_tree_results,
-                layer_save_dir,
-                args.model_name,
-                args.layer,
-                "decision_tree",
-                hidden=False,
-            )
+            # trainer.save_results(
+            #     sae_tree_results,
+            #     layer_save_dir,
+            #     args.model_name,
+            #     args.layer,
+            #     "decision_tree",
+            #     hidden=False,
+            # )
 
             logging.info("Processing and classification completed successfully")
 
@@ -400,20 +400,20 @@ def main():
             # Prepare and save dashboard data
             hidden_dashboard_data = prepare_dashboard_data(
                 linear_results=hidden_linear_results,
-                tree_results=hidden_tree_results,
+                # tree_results=hidden_tree_results,
                 args=args,
                 layer=layer,
-                tree_info=get_tree_info(hidden_tree_results["model"]),
+                # tree_info=get_tree_info(hidden_tree_results["model"]),
                 hidden=True,
                 feature_mapping=feature_mapping,
                 class_names=label_encoder.classes_,
             )
             sae_dashboard_data = prepare_dashboard_data(
                 linear_results=sae_linear_results,
-                tree_results=sae_tree_results,
+                # tree_results=sae_tree_results,
                 args=args,
                 layer=layer,
-                tree_info=get_tree_info(sae_tree_results["model"]),
+                # tree_info=get_tree_info(sae_tree_results["model"]),
                 hidden=False,
                 feature_mapping=feature_mapping,
                 class_names=label_encoder.classes_,

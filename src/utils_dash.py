@@ -66,10 +66,10 @@ def get_top_features(importance_scores: List[Any], n: int = 10) -> List[Dict[str
 
 def prepare_dashboard_data(
     linear_results: Dict[str, Any],
-    tree_results: Dict[str, Any],
+    # tree_results: Dict[str, Any],
     args: argparse.Namespace,
     layer: str,
-    tree_info: Dict[str, Any],
+    # tree_info: Dict[str, Any],
     feature_mapping: Dict[Any, str],
     class_names: List[str],
     hidden: bool = False,
@@ -145,74 +145,74 @@ def prepare_dashboard_data(
                     ),
                     "roc_analysis": linear_results["metrics"].get("roc_curve", {}),
                 },
-            },
-            "decisionTree": {
-                "performance": {
-                    "accuracy": tree_results["metrics"]["accuracy"],
-                    "cross_validation": {
-                        "mean_accuracy": tree_results["cv_scores"]["mean"],
-                        "std_accuracy": tree_results["cv_scores"]["std"],
-                        "fold_scores": tree_results["cv_scores"]["scores"],
-                    },
-                },
-                "hyperparameters": {
-                    "best_params": tree_results["best_params"],
-                    "search_space": tree_results.get("param_grid", {}),
-                },
-                "class_metrics": {
-                    class_name: {
-                        "precision": metrics["precision"],
-                        "recall": metrics["recall"],
-                        "f1_score": metrics["f1-score"],
-                        "support": metrics["support"],
-                    }
-                    for class_name, metrics in tree_results["metrics"][
-                        "classification_report"
-                    ].items()
-                    if class_name not in ["accuracy", "macro avg", "weighted avg"]
-                },
-                "aggregated_metrics": {
-                    metric_type: {
-                        "precision": metrics["precision"],
-                        "recall": metrics["recall"],
-                        "f1_score": metrics["f1-score"],
-                        "support": metrics["support"],
-                    }
-                    for metric_type, metrics in tree_results["metrics"][
-                        "classification_report"
-                    ].items()
-                    if metric_type in ["macro avg", "weighted avg"]
-                },
-                "feature_analysis": {
-                    "importance_scores": tree_results["feature_importance"][
-                        "importance"
-                    ],
-                    "top_features": map_feature_indices(
-                        get_top_features(
-                            tree_results["feature_importance"]["importance"], n=10
-                        ),
-                        feature_mapping,
-                    ),
-                    "roc_analysis": tree_results["metrics"].get("roc_curve", {}),
-                },
-                "tree_structure": {
-                    "topology": {
-                        "children_left": tree_info["children_left"],
-                        "children_right": tree_info["children_right"],
-                        "feature_indices": tree_info["feature"],
-                        "feature_names": [
-                            feature_mapping.get(str(idx), f"Feature {idx}")
-                            for idx in tree_info["feature"]
-                        ],
-                    },
-                    "node_data": {
-                        "thresholds": tree_info["threshold"],
-                        "samples": tree_info["n_node_samples"],
-                        "impurity": tree_info["impurity"],
-                        "values": tree_info["value"],
-                    },
-                },
-            },
+            }
+            # "decisionTree": {
+            #     "performance": {
+            #         "accuracy": tree_results["metrics"]["accuracy"],
+            #         "cross_validation": {
+            #             "mean_accuracy": tree_results["cv_scores"]["mean"],
+            #             "std_accuracy": tree_results["cv_scores"]["std"],
+            #             "fold_scores": tree_results["cv_scores"]["scores"],
+            #         },
+            #     },
+            #     "hyperparameters": {
+            #         "best_params": tree_results["best_params"],
+            #         "search_space": tree_results.get("param_grid", {}),
+            #     },
+            #     "class_metrics": {
+            #         class_name: {
+            #             "precision": metrics["precision"],
+            #             "recall": metrics["recall"],
+            #             "f1_score": metrics["f1-score"],
+            #             "support": metrics["support"],
+            #         }
+            #         for class_name, metrics in tree_results["metrics"][
+            #             "classification_report"
+            #         ].items()
+            #         if class_name not in ["accuracy", "macro avg", "weighted avg"]
+            #     },
+            #     "aggregated_metrics": {
+            #         metric_type: {
+            #             "precision": metrics["precision"],
+            #             "recall": metrics["recall"],
+            #             "f1_score": metrics["f1-score"],
+            #             "support": metrics["support"],
+            #         }
+            #         for metric_type, metrics in tree_results["metrics"][
+            #             "classification_report"
+            #         ].items()
+            #         if metric_type in ["macro avg", "weighted avg"]
+            #     },
+            #     "feature_analysis": {
+            #         "importance_scores": tree_results["feature_importance"][
+            #             "importance"
+            #         ],
+            #         "top_features": map_feature_indices(
+            #             get_top_features(
+            #                 tree_results["feature_importance"]["importance"], n=10
+            #             ),
+            #             feature_mapping,
+            #         ),
+            #         "roc_analysis": tree_results["metrics"].get("roc_curve", {}),
+            #     },
+            #     "tree_structure": {
+            #         "topology": {
+            #             "children_left": tree_info["children_left"],
+            #             "children_right": tree_info["children_right"],
+            #             "feature_indices": tree_info["feature"],
+            #             "feature_names": [
+            #                 feature_mapping.get(str(idx), f"Feature {idx}")
+            #                 for idx in tree_info["feature"]
+            #             ],
+            #         },
+            #         "node_data": {
+            #             "thresholds": tree_info["threshold"],
+            #             "samples": tree_info["n_node_samples"],
+            #             "impurity": tree_info["impurity"],
+            #             "values": tree_info["value"],
+            #         },
+            #     },
+            # },
         },
     }
 
