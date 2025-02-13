@@ -1,4 +1,4 @@
-# Output and Results
+# Output & Results
 
 Items here are just a demo on what the file structure of outputs will look like.
 

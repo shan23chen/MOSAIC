@@ -2,9 +2,9 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![arXiv](https://img.shields.io/badge/arXiv-Paper-orange)](https://arxiv.org/abs/XXXX.XXXXX)
-[![Hugging Face](https://img.shields.io/badge/HuggingFace-Dataset-yellow)](https://huggingface.co/your-model)
-[![LessWrong Post](https://img.shields.io/badge/LessWrong-Cross_Modal_SAE's-red)](https://www.lesswrong.com/posts/your-post)
-[![Colab](https://img.shields.io/badge/results&figures-Colab-orange)](https://colab.research.google.com/drive/10pS7udzM18XSF9h3ipJ0IsiuUcvaJNOJ?usp=sharing)
+<!-- [![Hugging Face](https://img.shields.io/badge/HuggingFace-Dataset-yellow)](https://huggingface.co/your-model) -->
+[![LessWrong Post](https://img.shields.io/badge/LessWrong-Cross_Modal_SAE's-red)](https://www.lesswrong.com/posts/8JTi7N3nQmjoRRuMD/are-sae-features-from-the-base-model-still-meaningful-to-1)
+[![Colab](https://img.shields.io/badge/Results&Figures-Colab-orange)](https://colab.research.google.com/drive/10pS7udzM18XSF9h3ipJ0IsiuUcvaJNOJ?usp=sharing)
 
 **MOSAIC** (Multilingual and Multimodal Observations of Sparse Autoencoders for Interpretable Classification) is a simple and efficient pipeline for extracting model activations, enabling you to fit linear probes or use sparse autoencoders to fit explainable classifiers such as decision trees and linear probes.
 
@@ -20,7 +20,7 @@ We use a straightforward YAML file structure to allow extraction across layers, 
 
 - Binarization improves performance.
 - Features transfer across languages.
-- Features transfer from text-only to image tasks, e.g., Gemma to LLAVA.
+- Features transfer from text-only to image tasks, e.g., Gemma to LLAVA/Peligemma.
 
 ## Prerequisites
 
@@ -39,9 +39,9 @@ To set up the required environment, follow these steps:
 
 ## Step 1: Update the Configuration File
 
-Update the `conf.yaml` file with the desired settings to configure the model, datasets, and classifier parameters.
+Update the `config.yaml` file with the desired settings to configure the model, datasets, and classifier parameters.
 
-### Configuration File Structure (`conf.yaml`)
+### Configuration File Structure (`config.yaml`)
 
 ```yaml
 settings:
