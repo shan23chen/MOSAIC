@@ -1,11 +1,11 @@
-# MOSAIC: Multilingual and Multimodal Observations of Sparse Autoencoders for Interpretable Classification
+# Sparse Autoencoder Features for Classifications and Transferability
 
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![arXiv](https://img.shields.io/badge/arXiv-Paper-orange)](https://arxiv.org/abs/XXXX.XXXXX)
 [![Hugging Face](https://img.shields.io/badge/HuggingFace-Dataset-yellow)](https://huggingface.co/your-model)
 [![LessWrong Post](https://img.shields.io/badge/LessWrong-Cross_Modal_SAE's-red)](https://www.lesswrong.com/posts/your-post)
 
-**MOSAIC** is a simple and efficient pipeline for extracting model activations, enabling you to fit linear probes or use sparse autoencoders to fit explainable classifiers such as decision trees and linear probes.
+**MOSAIC** (Multilingual and Multimodal Observations of Sparse Autoencoders for Interpretable Classification) is a simple and efficient pipeline for extracting model activations, enabling you to fit linear probes or use sparse autoencoders to fit explainable classifiers such as decision trees and linear probes.
 
 We use a straightforward YAML file structure to allow extraction across layers, different pooling methods, and even across languages or modalities.
 
@@ -30,7 +30,6 @@ To set up the required environment, follow these steps:
    ```bash
    mamba env create -f environment.yml
    ```
-
 2. Activate the environment:
 
    ```bash
@@ -120,13 +119,11 @@ This will open the app in a new tab.
 ### Example Workflow
 
 1. Define model, dataset, and classification settings in `conf.yaml`.
-
 2. Run `run_experiments.py` to extract features and classify them:
 
    ```bash
    python run_experiments.py
    ```
-
 3. Run `app/main.py` to visualize the results.
 
 ## Directory Structure
@@ -142,4 +139,3 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 ## Citation
 
 BibTeX citation coming soon.
-
