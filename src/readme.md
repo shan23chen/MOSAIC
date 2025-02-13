@@ -1,6 +1,6 @@
-# SAE-LLaVA code Readme
+# source code Readme
 
-This directory contains the source code for SAE-LLaVA.  See individual file headers for details.
+This directory contains the source code for this project.  See individual file headers for details.
 
 The two main run files are `step1_extract_all.py`, `step2_dataset_classify.py`.
 
@@ -42,3 +42,5 @@ python step2_dataset_classify.py \
     --tree-depth 5 \
     --save-plots
 ```
+
+**But following the main readme and use our lastest yaml setup is recommended!**
