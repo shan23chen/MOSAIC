@@ -135,7 +135,7 @@ This will open the app in a new tab.
 
 ## License
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+This project is licensed under the Apache 2 License. See the `LICENSE` file for details.
 
 ## Citation
 
