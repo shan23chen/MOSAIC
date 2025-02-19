@@ -139,4 +139,14 @@ This project is licensed under the Apache 2 License. See the `LICENSE` file for 
 
 ## Citation
 
-BibTeX citation coming soon.
+```
+@misc{gallifant2025sparseautoencoderfeaturesclassifications,
+      title={Sparse Autoencoder Features for Classifications and Transferability}, 
+      author={Jack Gallifant and Shan Chen and Kuleen Sasse and Hugo Aerts and Thomas Hartvigsen and Danielle S. Bitterman},
+      year={2025},
+      eprint={2502.11367},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2502.11367}, 
+}
+```
